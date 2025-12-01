@@ -262,8 +262,13 @@ class MidiSynthExample extends Sprite {
         }
 
         // Write buffered audio samples (float32 interleaved)
+        var MASTER_GAIN = 0.7; // Reduce to 70% to prevent clipping
         for (i in 0...BUFFER_SIZE * CHANNELS) {
-            event.data.writeFloat(bytes.getFloat(i * 4));
+            var sample = bytes.getFloat(i * 4) * MASTER_GAIN;
+            // Clamp to [-1, 1] just in case
+            if (sample > 1.0) sample = 1.0;
+            else if (sample < -1.0) sample = -1.0;
+            event.data.writeFloat(sample);
         }
         #elseif js
         // HTML5/WASM path: consume queued buffers rendered via WASM synth
