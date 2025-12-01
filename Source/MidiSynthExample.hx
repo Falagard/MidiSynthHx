@@ -6,10 +6,12 @@ import openfl.events.KeyboardEvent;
 import openfl.events.SampleDataEvent;
 import openfl.media.Sound;
 import openfl.media.SoundChannel;
+import openfl.utils.Timer;
 import openfl.text.TextField;
 import openfl.text.TextFormat;
 import openfl.ui.Keyboard;
 import openfl.utils.ByteArray;
+import openfl.events.TimerEvent;
 
 #if cpp
 import cpp.vm.Gc;
@@ -29,11 +31,13 @@ class MidiSynthExample extends Sprite {
     private var sound:Sound;
     private var soundChannel:SoundChannel;
     private var infoText:TextField;
+    private var renderTimer:Timer;
+    private var audioQueue:Array<haxe.io.Bytes> = [];
     
     // Audio buffer configuration
     private static inline var SAMPLE_RATE:Int = 44100;
     private static inline var CHANNELS:Int = 2;
-    private static inline var BUFFER_SIZE:Int = 8192; // Samples per callback
+    private static inline var BUFFER_SIZE:Int = 2048; // Samples per callback (smaller for stability)
     
     // Keyboard to MIDI note mapping
     // A S D F G H J K L = C4 to E5 (white keys)
@@ -94,7 +98,8 @@ class MidiSynthExample extends Sprite {
                 trace("initializeAudio completed");
             } catch (e:Dynamic) {
                 trace("ERROR in initializeAudio: " + Std.string(e));
-                throw e;
+                // Do not rethrow here; keep app alive for diagnostics
+                updateInfo("Audio init failed, running without sound.\n" + Std.string(e));
             }
             
             // Set up keyboard input
@@ -109,86 +114,69 @@ class MidiSynthExample extends Sprite {
     private function initializeAudio():Void {
         // Create a Sound object for dynamic audio generation
         sound = new Sound();
-        
+
+        // Start a timer to render audio outside the audio callback
+        var ms = Math.max(1, Math.floor(1000 * BUFFER_SIZE / SAMPLE_RATE / 2));
+        renderTimer = new Timer(ms);
+        renderTimer.addEventListener(TimerEvent.TIMER, onRenderTick);
+        renderTimer.start();
+
+        // Prefill audio queue with silence to avoid initial underrun
+        for (i in 0...4) {
+            var silence = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
+            for (j in 0...BUFFER_SIZE * CHANNELS) silence.setFloat(j * 4, 0.0);
+            audioQueue.push(silence);
+        }
+
+        // Start playback
+        soundChannel = sound.play();
+        if (soundChannel == null) {
+            throw "Failed to start audio playback";
+        }
+
         // Register callback for sample data
         sound.addEventListener(SampleDataEvent.SAMPLE_DATA, onSampleData);
         
-        // Start playback
-        soundChannel = sound.play();
-        
         trace("Audio stream started");
+    }    private function onRenderTick(e:TimerEvent):Void {
+        try {
+            #if cpp
+            // Render two buffers per tick to keep ahead of the callback
+            var bytes = synth.renderBytes(BUFFER_SIZE);
+            audioQueue.push(bytes);
+            var bytes2 = synth.renderBytes(BUFFER_SIZE);
+            audioQueue.push(bytes2);
+            #elseif hl
+            var hlbuf = new hl.Bytes(BUFFER_SIZE * CHANNELS * 4);
+            synth.render(hlbuf, BUFFER_SIZE);
+            var bytes = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
+            for (i in 0...BUFFER_SIZE * CHANNELS) bytes.setFloat(i * 4, hlbuf.getF32(i * 4));
+            audioQueue.push(bytes);
+            #elseif js
+            var audioData = synth.render(null, BUFFER_SIZE);
+            var bytes = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
+            if (audioData != null) {
+                for (i in 0...BUFFER_SIZE * CHANNELS) bytes.setFloat(i * 4, untyped audioData[i]);
+            }
+            audioQueue.push(bytes);
+            #else
+            var bytes = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
+            audioQueue.push(bytes);
+            #end
+        } catch (err:Dynamic) {
+            // On error, push silence
+            var silence = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
+            for (i in 0...BUFFER_SIZE * CHANNELS) silence.setFloat(i * 4, 0.0);
+            audioQueue.push(silence);
+            audioQueue.push(silence);
+        }
     }
     
     private function onSampleData(event:SampleDataEvent):Void {
-        // This callback is called when OpenFL needs more audio data
-        // We render audio from the synthesizer and write it to the output buffer
-        trace("onSampleData begin");
-        
-        #if cpp
-        // For C++, we can render directly
-        var buffer = new ByteArray();
-        buffer.length = BUFFER_SIZE * CHANNELS * 4; // 4 bytes per float
-        
-        // Render samples from synth
-        try {
-            synth.render(buffer, BUFFER_SIZE);
-        } catch (e:Dynamic) {
-            trace("ERROR in render: " + Std.string(e));
-            // Write silence to avoid popping
-            for (i in 0...BUFFER_SIZE * CHANNELS) {
-                event.data.writeFloat(0.0);
-            }
-            return;
-        }
-        
-        // Write to output
-        buffer.position = 0;
-        for (i in 0...BUFFER_SIZE * CHANNELS) {
-            var sample = buffer.readFloat();
-            event.data.writeFloat(sample);
-        }
-        
-        #elseif hl
-        // For HashLink, similar approach
-        var buffer = new hl.Bytes(BUFFER_SIZE * CHANNELS * 4);
-        try {
-            synth.render(buffer, BUFFER_SIZE);
-        } catch (e:Dynamic) {
-            trace("ERROR in render(hl): " + Std.string(e));
-            for (i in 0...BUFFER_SIZE * CHANNELS) {
-                event.data.writeFloat(0.0);
-            }
-            return;
-        }
-        
-        // Convert to ByteArray for OpenFL
-        for (i in 0...BUFFER_SIZE * CHANNELS) {
-            var sample = buffer.getF32(i * 4);
-            event.data.writeFloat(sample);
-        }
-        
-        #elseif js
-        // For HTML5, render returns Float32Array
-        var audioData = synth.render(null, BUFFER_SIZE);
-        
-        if (audioData != null) {
-            for (i in 0...BUFFER_SIZE * CHANNELS) {
-                event.data.writeFloat(untyped audioData[i]);
-            }
-        } else {
-            // Write silence if not ready
-            for (i in 0...BUFFER_SIZE * CHANNELS) {
-                event.data.writeFloat(0.0);
-            }
-        }
-        
-        #else
-        // Fallback: write silence
+        // Force silence to validate device stability during init
         for (i in 0...BUFFER_SIZE * CHANNELS) {
             event.data.writeFloat(0.0);
         }
-        #end
-        trace("onSampleData end");
     }
     
     private function setupKeyMapping():Void {

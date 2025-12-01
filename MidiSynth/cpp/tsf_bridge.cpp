@@ -198,6 +198,12 @@ static value cffi_tsf_render(value vhandle, value vbuf, value vsamples) {
 }
 DEFINE_PRIM(cffi_tsf_render,3);
 
+// Explicit bytes render primitive (alias) for audio callback usage
+static value cffi_tsf_render_bytes(value vhandle, value vbuf, value vsamples) {
+    return cffi_tsf_render(vhandle, vbuf, vsamples);
+}
+DEFINE_PRIM(cffi_tsf_render_bytes,3);
+
 static value cffi_tsf_note_off_all(value vhandle) {
     TSFHandle h = (TSFHandle)(intptr_t)val_int(vhandle);
     tsf_bridge_note_off_all(h);

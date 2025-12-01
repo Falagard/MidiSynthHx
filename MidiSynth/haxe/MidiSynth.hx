@@ -44,6 +44,20 @@ class MidiSynth {
     
     private var sampleRate:Int;
     private var channels:Int;
+    #if cpp
+    private static var cffiRenderFn:Dynamic = null;
+    private static inline function getCffiRender():Dynamic {
+        if (cffiRenderFn == null) {
+            // Prefer explicit bytes render primitive
+            try {
+                cffiRenderFn = cpp.Lib.load(null, "cffi_tsf_render_bytes", 3);
+            } catch (_:Dynamic) {
+                cffiRenderFn = cpp.Lib.load(null, "cffi_tsf_render", 3);
+            }
+        }
+        return cffiRenderFn;
+    }
+    #end
     
     /**
      * Create a new MIDI synthesizer
@@ -282,14 +296,22 @@ class MidiSynth {
      */
     public function render(buffer:Any, sampleCount:Int):Int {
         #if cpp
-        // For C++, render into a native float array, then copy to ByteArray
+        // For C++, render via CFFI into a Bytes buffer, then copy to ByteArray
         var ba:openfl.utils.ByteArray = cast buffer;
-        // For C++, accept openfl ByteArray and render via pointer
-        ba.length = sampleCount * channels * 4;
+        var totalFloats = sampleCount * channels;
+        var bytes:HaxeBytes = HaxeBytes.alloc(totalFloats * 4);
+        var rendered:Int = getCffiRender()(handle, bytes, sampleCount);
+        ba.length = totalFloats * 4;
         ba.position = 0;
-        var dataPtr:cpp.Pointer<cpp.UInt8> = untyped ba.getData();
-        var voidPtr:cpp.RawPointer<cpp.Void> = cast dataPtr.raw;
-        return MidiSynthNative.render(handle, voidPtr, sampleCount);
+        if (rendered <= 0) {
+            // write silence
+            for (i in 0...totalFloats) ba.writeFloat(0.0);
+            return 0;
+        }
+        // Copy raw bytes (float32 PCM) directly
+        ba.writeBytes(bytes, 0, totalFloats * 4);
+        ba.position = 0;
+        return rendered;
         #elseif hl
         // For HashLink, buffer should be hl.Bytes
         return tsf_render(handle, cast buffer, sampleCount);
@@ -308,6 +330,22 @@ class MidiSynth {
         return 0;
         #end
     }
+
+    #if cpp
+    /**
+     * Render audio samples to Bytes (C++ fast path)
+     */
+    public function renderBytes(sampleCount:Int):HaxeBytes {
+        if (sampleCount <= 0) return HaxeBytes.alloc(0);
+        var totalFloats = sampleCount * channels;
+        var bytes:HaxeBytes = HaxeBytes.alloc(totalFloats * 4);
+        // Get raw pointer to Bytes data using hxcpp API
+        var ptr:cpp.RawPointer<cpp.Void> = untyped __cpp__("(void*)({0}->b->GetBase())", bytes);
+        var rendered:Int = MidiSynthNative.render(handle, ptr, sampleCount);
+        if (rendered <= 0) return HaxeBytes.alloc(0);
+        return bytes;
+    }
+    #end
     
     /**
      * Get the number of currently active voices
