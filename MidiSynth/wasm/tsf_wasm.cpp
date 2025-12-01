@@ -84,6 +84,14 @@ void wasm_tsf_set_preset(TSFSynth* handle, int channel, int bank, int preset) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void wasm_tsf_pitch_bend(TSFSynth* handle, int channel, int pitch_wheel) {
+    if (!handle) return;
+    // TinySoundFont expects pitch wheel as -8192 to +8191
+    int bend = pitch_wheel - 8192;
+    tsf_channel_set_pitchwheel(handle->synth, channel, bend);
+}
+
+EMSCRIPTEN_KEEPALIVE
 int wasm_tsf_render(TSFSynth* handle, float* buffer, int sample_count) {
     if (!handle || !buffer || sample_count <= 0) return 0;
     tsf_render_float(handle->synth, buffer, sample_count, 0);
@@ -112,6 +120,7 @@ EMSCRIPTEN_BINDINGS(tsf_module) {
     function("noteOn", &wasm_tsf_note_on, allow_raw_pointers());
     function("noteOff", &wasm_tsf_note_off, allow_raw_pointers());
     function("setPreset", &wasm_tsf_set_preset, allow_raw_pointers());
+    function("pitchBend", &wasm_tsf_pitch_bend, allow_raw_pointers());
     function("render", &wasm_tsf_render, allow_raw_pointers());
     function("noteOffAll", &wasm_tsf_note_off_all, allow_raw_pointers());
     function("activeVoices", &wasm_tsf_active_voices, allow_raw_pointers());

@@ -83,6 +83,25 @@ class MidiSynth {
         throw "MidiSynth: Unsupported target platform";
         #end
     }
+
+    @:hlNative("tsfhl", "pitch_bend")
+    private static function tsf_pitch_bend(handle:Dynamic, channel:Int, pitchWheel:Int):Void {}
+    /**
+     * Set pitch bend for a channel
+     * @param channel MIDI channel (0-15)
+     * @param pitchWheel Pitch wheel value (0-16383, center is 8192)
+     */
+    public function pitchBend(channel:Int, pitchWheel:Int):Void {
+        #if cpp
+        MidiSynthNative.pitchBend(handle, channel, pitchWheel);
+        #elseif hl
+        tsf_pitch_bend(handle, channel, pitchWheel);
+        #elseif js
+        if (handle != 0) {
+            untyped glue.pitchBend(handle, channel, pitchWheel);
+        }
+        #end
+    }
     
     #if cpp
     // ============================================

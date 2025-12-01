@@ -52,6 +52,12 @@ void tsf_bridge_note_off(TSFHandle handle, int channel, int note);
 // preset: preset number (0-127, e.g., 0 = piano)
 void tsf_bridge_set_preset(TSFHandle handle, int channel, int bank, int preset);
 
+// Set pitch bend for a channel
+// handle: synthesizer instance
+// channel: MIDI channel (0-15)
+// pitch_wheel: 14-bit value (0-16383, center 8192)
+void tsf_bridge_pitch_bend(TSFHandle handle, int channel, int pitch_wheel);
+
 // Render audio samples
 // handle: synthesizer instance
 // buffer: output buffer (float32 PCM, interleaved stereo if channels=2)

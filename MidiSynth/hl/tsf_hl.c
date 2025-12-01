@@ -84,6 +84,14 @@ HL_PRIM void HL_NAME(set_preset)(vdynamic* handle, int channel, int bank, int pr
 }
 DEFINE_PRIM(_VOID, set_preset, _DYN _I32 _I32 _I32);
 
+// Set pitch bend
+// Haxe signature: function pitchBend(handle:TSFHandle, channel:Int, pitchWheel:Int):Void
+HL_PRIM void HL_NAME(pitch_bend)(vdynamic* handle, int channel, int pitch_wheel) {
+    if (!handle || !handle->v.ptr) return;
+    tsf_bridge_pitch_bend((TSFHandle)handle->v.ptr, channel, pitch_wheel);
+}
+DEFINE_PRIM(_VOID, pitch_bend, _DYN _I32 _I32);
+
 // Render audio samples
 // Haxe signature: function render(handle:TSFHandle, buffer:hl.Bytes, sampleCount:Int):Int
 HL_PRIM int HL_NAME(render)(vdynamic* handle, vbyte* buffer, int sample_count) {

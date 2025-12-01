@@ -139,6 +139,11 @@ var TSFGlue = (function() {
             module._wasm_tsf_set_preset(handle, channel, bank, preset);
         },
         
+        // Set pitch bend for a channel
+        pitchBend: function(handle, channel, pitchWheel) {
+            module._wasm_tsf_pitch_bend(handle, channel, pitchWheel);
+        },
+        
         // Render audio samples
         // Returns Float32Array with rendered audio
         render: function(handle, sampleCount) {

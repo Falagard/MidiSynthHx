@@ -117,6 +117,14 @@ void tsf_bridge_set_preset(TSFHandle handle, int channel, int bank, int preset) 
     tsf_channel_set_bank_preset(synth->synth, channel, bank, preset);
 }
 
+void tsf_bridge_pitch_bend(TSFHandle handle, int channel, int pitch_wheel) {
+    if (!handle) return;
+    TSFSynth* synth = (TSFSynth*)handle;
+    // TinySoundFont expects pitch wheel as -8192 to +8191
+    int bend = pitch_wheel - 8192;
+    tsf_channel_set_pitchwheel(synth->synth, channel, bend);
+}
+
 int tsf_bridge_render(TSFHandle handle, void* buffer, int sample_count) {
     if (!handle || !buffer || sample_count <= 0) return 0;
     
@@ -187,6 +195,13 @@ static value cffi_tsf_set_preset(value vhandle, value vchan, value vbank, value 
     return alloc_null();
 }
 DEFINE_PRIM(cffi_tsf_set_preset,4);
+
+static value cffi_tsf_pitch_bend(value vhandle, value vchan, value vpitch) {
+    TSFHandle h = (TSFHandle)(intptr_t)val_int(vhandle);
+    tsf_bridge_pitch_bend(h, val_int(vchan), val_int(vpitch));
+    return alloc_null();
+}
+DEFINE_PRIM(cffi_tsf_pitch_bend,3);
 
 static value cffi_tsf_render(value vhandle, value vbuf, value vsamples) {
     TSFHandle h = (TSFHandle)(intptr_t)val_int(vhandle);
