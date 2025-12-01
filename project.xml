@@ -27,12 +27,11 @@
 	<!-- Add MidiSynth include paths for C++ target -->
 	<section if="cpp">
 		<includepath name="MidiSynth/cpp" />
+		<includepath name="MidiSynth/cpp/tsf" />
 	</section>
 
 	<!-- Ensure native headers are available in the hxcpp include path -->
-	<!-- Place headers where hxcpp adds -Iinclude -->
-	<template path="MidiSynth/cpp/tsf_bridge.h" rename="include/tsf_bridge.h" />
-	<template path="MidiSynth/cpp/tsf/tsf.h" rename="include/tsf/tsf.h" />
+	<!-- Rely on hxcpp include paths from MidiSynth/cpp/include.xml; avoid copying headers to bin/include -->
 	
 	<!-- MidiSynth HashLink Native Extension -->
 	<section if="hl">

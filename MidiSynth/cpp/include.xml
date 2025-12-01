@@ -1,10 +1,10 @@
 <xml>
-  <section>
-    <files id="haxe">
-      <compilerflag value="-IC:/Src/ge/MidiFeedi/MidiSynth/cpp" />
-      <compilerflag value="-IC:/Src/ge/MidiFeedi/MidiSynth/cpp/tsf" />
-      <compilerflag value="-DHXCPP_API" />
-      <file name="C:/Src/ge/MidiFeedi/MidiSynth/cpp/tsf_bridge.cpp" />
-    </files>
-  </section>
+  <files id="default">
+    <!-- Portable include paths so the compiler finds TinySoundFont headers (paths resolved from Export/.../obj) -->
+    <includePath name="../../MidiSynth/cpp" />
+    <includePath name="../../MidiSynth/cpp/tsf" />
+    <compilerflag value="-DHXCPP_API" />
+    <!-- If you later switch away from @:cppFileCode, uncomment the next line to compile the bridge -->
+    <!-- <file name="MidiSynth/cpp/tsf_bridge.cpp" /> -->
+  </files>
 </xml>
