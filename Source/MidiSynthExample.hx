@@ -117,54 +117,40 @@ class MidiSynthExample extends Sprite {
 
         // Register callback for sample data BEFORE starting playback
         sound.addEventListener(SampleDataEvent.SAMPLE_DATA, onSampleData);
-        trace("Registered SAMPLE_DATA listener");
 
         // Start playback - this will begin calling onSampleData
         soundChannel = sound.play();
         if (soundChannel == null) {
             throw "Failed to start audio playback";
         }
-        trace("sound.play() successful, soundChannel created");
 
-        // Start a timer to render audio outside the audio callback
-        var ms = Math.max(1, Math.floor(1000 * BUFFER_SIZE / SAMPLE_RATE / 2));
+        // Start a timer to render audio - match callback frequency (not faster)
+        // SampleDataEvent typically fires ~20-40 times per second
+        var ms = Math.floor(1000 * BUFFER_SIZE / SAMPLE_RATE); // Render at consumption rate
         renderTimer = new Timer(ms);
         renderTimer.addEventListener(TimerEvent.TIMER, onRenderTick);
         renderTimer.start();
 
-        // Prefill audio queue with silence to avoid initial underrun
-        for (i in 0...4) {
+        // Minimal prefill - just 2 buffers to avoid initial stutter
+        for (i in 0...2) {
             var silence = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
             for (j in 0...BUFFER_SIZE * CHANNELS) silence.setFloat(j * 4, 0.0);
             audioQueue.push(silence);
         }
-        
-        trace("Audio stream started");
     }    private var renderCount:Int = 0;
+    private static inline var MAX_QUEUE_SIZE:Int = 3; // Keep latency minimal (~70ms)
     
     private function onRenderTick(e:TimerEvent):Void {
+        // Don't render if queue is already full
+        if (audioQueue.length >= MAX_QUEUE_SIZE) {
+            return;
+        }
+        
         try {
             #if cpp
-            // Render two buffers per tick to keep ahead of the callback
+            // Render one buffer per tick to match consumption rate
             var bytes = synth.renderBytes(BUFFER_SIZE);
             audioQueue.push(bytes);
-            var bytes2 = synth.renderBytes(BUFFER_SIZE);
-            audioQueue.push(bytes2);
-            
-            // Debug: Log first render and periodically check queue depth
-            renderCount++;
-            if (renderCount == 1) {
-                trace("First render: bytes.length=" + bytes.length);
-                if (bytes.length >= 16) {
-                    var sample0 = bytes.getFloat(0);
-                    var sample1 = bytes.getFloat(4);
-                    var sample2 = bytes.getFloat(8);
-                    trace("First 3 samples: " + sample0 + ", " + sample1 + ", " + sample2);
-                }
-            }
-            if (renderCount % 100 == 0) {
-                trace("Queue depth: " + audioQueue.length + ", Active voices: " + synth.getActiveVoices());
-            }
             #elseif hl
             var hlbuf = new hl.Bytes(BUFFER_SIZE * CHANNELS * 4);
             synth.render(hlbuf, BUFFER_SIZE);
@@ -191,42 +177,19 @@ class MidiSynthExample extends Sprite {
         }
     }
     
-    private var sampleDataCount:Int = 0;
-    private var lastNonZero:Float = 0.0;
-    
     private function onSampleData(event:SampleDataEvent):Void {
-        sampleDataCount++;
-        
         #if cpp
         var bytes:Null<haxe.io.Bytes> = audioQueue.length > 0 ? audioQueue.shift() : null;
         
         if (bytes == null || bytes.length == 0) {
             // Write silence if queue is empty
             for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
-            if (sampleDataCount % 50 == 0) {
-                trace("WARNING: Audio queue empty, writing silence");
-            }
             return;
         }
         
         // Write buffered audio samples
-        var totalFloats = BUFFER_SIZE * CHANNELS;
-        for (i in 0...totalFloats) {
-            var sample = bytes.getFloat(i * 4);
-            event.data.writeFloat(sample);
-            
-            // Track non-zero samples
-            if (sample != 0.0) lastNonZero = sample;
-        }
-        
-        // Debug: Log first callback and periodically report
-        if (sampleDataCount == 1) {
-            var s0 = bytes.getFloat(0);
-            var s1 = bytes.getFloat(4);
-            trace("First onSampleData: wrote " + totalFloats + " floats, first samples: " + s0 + ", " + s1);
-        }
-        if (sampleDataCount % 100 == 0) {
-            trace("onSampleData #" + sampleDataCount + ", queue: " + audioQueue.length + ", lastNonZero: " + lastNonZero);
+        for (i in 0...BUFFER_SIZE * CHANNELS) {
+            event.data.writeFloat(bytes.getFloat(i * 4));
         }
         
         #else
