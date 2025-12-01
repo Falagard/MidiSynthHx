@@ -38,6 +38,8 @@ class MidiSynth {
     private var handle:Dynamic;
     #elseif js
     private var handle:Int;
+    private var readyCallbacks:Array<Void->Void> = [];
+    private var isReady:Bool = false;
     private static var wasmModule:Dynamic = null;
     private static var glue:Dynamic = null;
     #end
@@ -169,7 +171,13 @@ class MidiSynth {
                 throw "Failed to initialize SoundFont from: " + path;
             }
             untyped glue.setOutput(handle, sampleRate, channels);
+            isReady = true;
             trace("MidiSynth initialized for HTML5");
+            // Execute any pending callbacks
+            for (cb in readyCallbacks) {
+                try { cb(); } catch (e:Dynamic) { trace("Error in ready callback: " + e); }
+            }
+            readyCallbacks = [];
         });
     }
     
@@ -185,17 +193,47 @@ class MidiSynth {
             return;
         }
         
-        // Load TSF WASM module
-        untyped __js__("
-            TSFModule().then(function(Module) {
-                TSFGlue.init(Module);
+        // Dynamically load tsf_glue.js then tsf.js
+        var loadScript = function(url:String, callback:Void->Void) {
+            var script = js.Browser.document.createScriptElement();
+            script.src = url;
+            script.onload = function() callback();
+            script.onerror = function() {
+                trace("Failed to load script: " + url);
+                throw "Failed to load WASM script: " + url;
+            };
+            js.Browser.document.head.appendChild(script);
+        };
+        
+        // Load tsf_glue.js first
+        loadScript("tsf_glue.js", function() {
+            trace("tsf_glue.js loaded");
+            
+            // Then load tsf.js (WASM module)
+            loadScript("tsf.js", function() {
+                trace("tsf.js loaded, initializing TSFModule...");
+                
+                // Now TSFModule should be available
+                js.Syntax.code("
+                    TSFModule().then(function(Module) {{
+                        window.TSFModuleInstance = Module;
+                        console.log('TSFModule initialized, exports:', Object.keys(Module).length, 'functions');
+                        // The Module itself is the glue - pass it directly to TSFGlue
+                        // TSFGlue will use Module._malloc and direct memory access via setValue/getValue
+                        TSFGlue.init(Module);
+                    }});
+                ");
+                
+                glue = js.Syntax.code("TSFGlue");
+                initialized = true;
+                
+                // Wait a bit for WASM to initialize
+                haxe.Timer.delay(function() {
+                    trace("WASM initialization complete");
+                    onComplete();
+                }, 100);
             });
-        ");
-        
-        glue = untyped __js__("TSFGlue");
-        initialized = true;
-        
-        onComplete();
+        });
         #end
     }
     
@@ -282,8 +320,13 @@ class MidiSynth {
         #elseif hl
         tsf_set_preset(handle, channel, bank, preset);
         #elseif js
-        if (handle != 0) {
+        if (isReady && handle != 0) {
             untyped glue.setPreset(handle, channel, bank, preset);
+        } else {
+            // Defer until ready
+            readyCallbacks.push(function() {
+                untyped glue.setPreset(handle, channel, bank, preset);
+            });
         }
         #end
     }
@@ -292,9 +335,9 @@ class MidiSynth {
      * Render audio samples
      * @param buffer Output buffer (Float32 array, interleaved stereo if channels=2)
      * @param sampleCount Number of samples to render (frames, not total floats)
-     * @return Number of samples actually rendered
+     * @return Number of samples actually rendered (or Float32Array for JS)
      */
-    public function render(buffer:Any, sampleCount:Int):Int {
+    public function render(buffer:Any, sampleCount:Int):Dynamic {
         #if cpp
         // For C++, render via CFFI into a Bytes buffer, then copy to ByteArray
         var ba:openfl.utils.ByteArray = cast buffer;
@@ -319,13 +362,13 @@ class MidiSynth {
         if (handle != 0) {
             var audioData:Float32Array = untyped glue.render(handle, sampleCount);
             // Copy to provided buffer if needed
-            if (Std.is(buffer, Float32Array)) {
+            if (buffer != null && Std.is(buffer, Float32Array)) {
                 var typedBuffer:Float32Array = cast buffer;
                 typedBuffer.set(audioData);
             }
-            return sampleCount;
+            return audioData; // Return the Float32Array for JS
         }
-        return 0;
+        return null;
         #else
         return 0;
         #end

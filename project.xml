@@ -43,13 +43,13 @@
 	
 	<!-- MidiSynth WebAssembly for HTML5 -->
 	<section if="html5">
-		<!-- Include WASM module and JS glue -->
+		<!-- Use custom HTML template that loads WASM scripts -->
+		<template path="templates/html5/template/index.html" />
+		
+		<!-- Copy WASM files to output directory -->
 		<assets path="MidiSynth/wasm/tsf.js" rename="tsf.js" type="text" embed="false" />
 		<assets path="MidiSynth/wasm/tsf.wasm" rename="tsf.wasm" type="binary" embed="false" />
 		<assets path="MidiSynth/wasm/tsf_glue.js" rename="tsf_glue.js" type="text" embed="false" />
-		
-		<!-- Include JS files in HTML template -->
-		<template path="MidiSynth/wasm/tsf_glue.js" rename="tsf_glue.js" />
 	</section>
 	
 </project>

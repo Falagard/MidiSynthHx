@@ -2,6 +2,7 @@ package;
 
 import openfl.display.Sprite;
 import openfl.events.Event;
+import openfl.events.MouseEvent;
 import openfl.events.KeyboardEvent;
 import openfl.events.SampleDataEvent;
 import openfl.media.Sound;
@@ -33,6 +34,9 @@ class MidiSynthExample extends Sprite {
     private var infoText:TextField;
     private var renderTimer:Timer;
     private var audioQueue:Array<haxe.io.Bytes> = [];
+    #if html5
+    private var audioStarted:Bool = false;
+    #end
     
     // Audio buffer configuration
     private static inline var SAMPLE_RATE:Int = 44100;
@@ -62,21 +66,38 @@ class MidiSynthExample extends Sprite {
         
         // Initialize synthesizer
         #if html5
-        // For HTML5, we need to initialize WASM first
+        // For HTML5, initialize WASM first, and delay audio start until user gesture
         MidiSynth.initializeWasm(function() {
             initializeSynth();
+            stage.addEventListener(KeyboardEvent.KEY_DOWN, onStartAudio);
+            stage.addEventListener(MouseEvent.MOUSE_DOWN, onStartAudio);
         });
         #else
         initializeSynth();
         #end
     }
+
+    #if html5
+    private function onStartAudio(_e:Event):Void {
+        if (audioStarted) return;
+        audioStarted = true;
+        try {
+            initializeAudio();
+            updateInfo("Audio started. Press keys to play notes.");
+        } catch (e:Dynamic) {
+            updateInfo("Audio init failed: " + Std.string(e));
+        }
+        stage.removeEventListener(KeyboardEvent.KEY_DOWN, onStartAudio);
+        stage.removeEventListener(MouseEvent.MOUSE_DOWN, onStartAudio);
+    }
+    #end
     
     private function initializeSynth():Void {
         try {
             trace("Attempting to create MidiSynth...");
             // Create synthesizer with GM.sf2 SoundFont
             // Use the correct packaged Assets path for native targets
-            synth = new MidiSynth("Assets/soundfonts/GM.sf2", SAMPLE_RATE, CHANNELS);
+            synth = new MidiSynth(#if html5 "assets/soundfonts/GM.sf2" #else "Assets/soundfonts/GM.sf2" #end, SAMPLE_RATE, CHANNELS);
             trace("MidiSynth created successfully");
             
             // Set up channel 0 with piano (preset 0)
@@ -93,6 +114,7 @@ class MidiSynthExample extends Sprite {
             
             // Set up audio output
             trace("Calling initializeAudio()...");
+            #if !html5
             try {
                 initializeAudio();
                 trace("initializeAudio completed");
@@ -101,6 +123,7 @@ class MidiSynthExample extends Sprite {
                 // Do not rethrow here; keep app alive for diagnostics
                 updateInfo("Audio init failed, running without sound.\n" + Std.string(e));
             }
+            #end
             
             // Set up keyboard input
             stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
@@ -159,11 +182,17 @@ class MidiSynthExample extends Sprite {
             audioQueue.push(bytes);
             #elseif js
             var audioData = synth.render(null, BUFFER_SIZE);
+            #if debug
+            trace("JS render tick: got " + (audioData != null ? BUFFER_SIZE : 0) + " samples");
+            #end
             var bytes = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
             if (audioData != null) {
                 for (i in 0...BUFFER_SIZE * CHANNELS) bytes.setFloat(i * 4, untyped audioData[i]);
             }
             audioQueue.push(bytes);
+            #if debug
+            trace("Queue length after push (js): " + audioQueue.length);
+            #end
             #else
             var bytes = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
             audioQueue.push(bytes);
@@ -191,9 +220,25 @@ class MidiSynthExample extends Sprite {
         for (i in 0...BUFFER_SIZE * CHANNELS) {
             event.data.writeFloat(bytes.getFloat(i * 4));
         }
+        #elseif js
+        // HTML5/WASM path: consume queued buffers rendered via WASM synth
+        var bytes:Null<haxe.io.Bytes> = audioQueue.length > 0 ? audioQueue.shift() : null;
+        if (bytes == null || bytes.length == 0) {
+            // Underrun: write silence
+            for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
+            return;
+        }
+        for (i in 0...BUFFER_SIZE * CHANNELS) {
+            event.data.writeFloat(bytes.getFloat(i * 4));
+        }
         #else
-        // Other targets: silence (not implemented)
-        for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
+        // Other targets: consume JS queue if available, else silence
+        var bytes:Null<haxe.io.Bytes> = audioQueue.length > 0 ? audioQueue.shift() : null;
+        if (bytes == null || bytes.length == 0) {
+            for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
+        } else {
+            for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(bytes.getFloat(i * 4));
+        }
         #end
     }
     

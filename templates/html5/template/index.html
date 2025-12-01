@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	
+	<meta charset="utf-8">
+	
+	<title>::APP_TITLE::</title>
+	
+	<meta id="viewport" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+	<meta name="mobile-web-app-capable" content="yes">
+	
+	::if favicons::
+	<link rel="shortcut icon" type="image/png" href="::WIN_ICON::">
+	::end::
+	
+	<!-- TinySoundFont WASM module and glue code -->
+	<script type="text/javascript" src="./tsf.js"></script>
+	<script type="text/javascript" src="./tsf_glue.js"></script>
+	
+	<script type="text/javascript" src="./::APP_FILE::.js"></script>
+	
+	<script>
+		window.addEventListener ("touchmove", function (event) { event.preventDefault (); }, { capture: false, passive: false });
+		if (typeof window.devicePixelRatio != 'undefined' && window.devicePixelRatio > 2) {
+			var meta = document.getElementById ("viewport");
+			meta.setAttribute ('content', 'width=device-width, initial-scale=' + (2 / window.devicePixelRatio) + ', user-scalable=no');
+		}
+	</script>
+	
+	<style>
+		html,body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+		#openfl-content { background: ::WIN_BACKGROUND::; width: 100%; height: 100%; }
+		::foreach assets::::if (type == "font")::
+		@font-face {
+			font-family: '::id::';
+			src: url('::resourceName::');
+		}
+		::end::::end::
+	</style>
+	
+</head>
+<body>
+	
+	<noscript>This webpage makes extensive use of JavaScript. Please enable JavaScript in your web browser to view this page.</noscript>
+	
+	<div id="openfl-content"></div>
+	
+	<script type="text/javascript">
+		lime.embed ("::APP_FILE::", "openfl-content", ::WIN_WIDTH::, ::WIN_HEIGHT::, { parameters: {} });
+	</script>
+	
+</body>
+</html>

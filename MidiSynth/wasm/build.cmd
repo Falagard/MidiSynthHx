@@ -1,21 +1,19 @@
 @echo off
-setlocal
+REM Wrapper script that properly activates emsdk then builds
 
-REM Auto-activate emsdk if EMSDK not set
+echo Activating emsdk...
+call C:\Src\ge\emsdk\emsdk_env.bat
+
 if "%EMSDK%"=="" (
-  echo Activating emsdk...
-  set EMSDK_ROOT=C:\Src\ge\emsdk
-  if not exist "%EMSDK_ROOT%\emsdk_env.bat" (
-    echo ERROR: emsdk not found at %EMSDK_ROOT%
-    echo Please update EMSDK_ROOT in this script or run emsdk_env.bat manually
-    exit /b 1
-  )
-  call "%EMSDK_ROOT%\emsdk_env.bat"
+  echo ERROR: Failed to activate emsdk
+  exit /b 1
 )
 
+echo.
 echo Building TinySoundFont WASM...
+cd /d %~dp0
 
-call emcc tsf_wasm.cpp ..\cpp\tsf_bridge.cpp ^
+emcc tsf_wasm.cpp ..\cpp\tsf_bridge.cpp ^
     -I..\cpp ^
     -I..\cpp\tsf ^
     -O3 ^
@@ -40,6 +38,3 @@ echo Build complete:
 echo   tsf.js
 echo   tsf.wasm
 echo.
-echo Copy these files to your Assets folder or reference via project.xml
-
-endlocal
