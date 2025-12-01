@@ -125,6 +125,12 @@ void tsf_bridge_pitch_bend(TSFHandle handle, int channel, int pitch_wheel) {
     tsf_channel_set_pitchwheel(synth->synth, channel, bend);
 }
 
+void tsf_bridge_control_change(TSFHandle handle, int channel, int controller, int value) {
+    if (!handle) return;
+    TSFSynth* synth = (TSFSynth*)handle;
+    tsf_channel_midi_control(synth->synth, channel, controller, value);
+}
+
 int tsf_bridge_render(TSFHandle handle, void* buffer, int sample_count) {
     if (!handle || !buffer || sample_count <= 0) return 0;
     
@@ -202,6 +208,13 @@ static value cffi_tsf_pitch_bend(value vhandle, value vchan, value vpitch) {
     return alloc_null();
 }
 DEFINE_PRIM(cffi_tsf_pitch_bend,3);
+
+static value cffi_tsf_control_change(value vhandle, value vchan, value vcontroller, value vvalue) {
+    TSFHandle h = (TSFHandle)(intptr_t)val_int(vhandle);
+    tsf_bridge_control_change(h, val_int(vchan), val_int(vcontroller), val_int(vvalue));
+    return alloc_null();
+}
+DEFINE_PRIM(cffi_tsf_control_change,4);
 
 static value cffi_tsf_render(value vhandle, value vbuf, value vsamples) {
     TSFHandle h = (TSFHandle)(intptr_t)val_int(vhandle);

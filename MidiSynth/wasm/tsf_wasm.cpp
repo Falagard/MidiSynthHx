@@ -92,6 +92,12 @@ void wasm_tsf_pitch_bend(TSFSynth* handle, int channel, int pitch_wheel) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void wasm_tsf_control_change(TSFSynth* handle, int channel, int controller, int value) {
+    if (!handle) return;
+    tsf_channel_midi_control(handle->synth, channel, controller, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
 int wasm_tsf_render(TSFSynth* handle, float* buffer, int sample_count) {
     if (!handle || !buffer || sample_count <= 0) return 0;
     tsf_render_float(handle->synth, buffer, sample_count, 0);
@@ -121,6 +127,7 @@ EMSCRIPTEN_BINDINGS(tsf_module) {
     function("noteOff", &wasm_tsf_note_off, allow_raw_pointers());
     function("setPreset", &wasm_tsf_set_preset, allow_raw_pointers());
     function("pitchBend", &wasm_tsf_pitch_bend, allow_raw_pointers());
+    function("controlChange", &wasm_tsf_control_change, allow_raw_pointers());
     function("render", &wasm_tsf_render, allow_raw_pointers());
     function("noteOffAll", &wasm_tsf_note_off_all, allow_raw_pointers());
     function("activeVoices", &wasm_tsf_active_voices, allow_raw_pointers());

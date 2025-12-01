@@ -24,6 +24,9 @@ extern class MidiSynthNative {
     @:native("tsf_bridge_pitch_bend")
     public static function pitchBend(handle:cpp.RawPointer<cpp.Void>, channel:Int, pitchWheel:Int):Void;
 
+    @:native("tsf_bridge_control_change")
+    public static function controlChange(handle:cpp.RawPointer<cpp.Void>, channel:Int, controller:Int, value:Int):Void;
+
     @:native("tsf_bridge_render")
     public static function render(handle:cpp.RawPointer<cpp.Void>, buffer:cpp.RawPointer<cpp.Void>, sampleCount:Int):Int;
 

@@ -103,6 +103,79 @@ class MidiSynth {
         #end
     }
     
+    @:hlNative("tsfhl", "control_change")
+    private static function tsf_control_change(handle:Dynamic, channel:Int, controller:Int, value:Int):Void {}
+    /**
+     * Send a MIDI control change message
+     * @param channel MIDI channel (0-15)
+     * @param controller MIDI controller number (0-127)
+     * @param value Controller value (0-127)
+     */
+    public function controlChange(channel:Int, controller:Int, value:Int):Void {
+        #if cpp
+        MidiSynthNative.controlChange(handle, channel, controller, value);
+        #elseif hl
+        tsf_control_change(handle, channel, controller, value);
+        #elseif js
+        if (handle != 0) {
+            untyped glue.controlChange(handle, channel, controller, value);
+        }
+        #end
+    }
+    
+    /**
+     * Set sustain pedal (damper pedal) for a channel
+     * @param channel MIDI channel (0-15)
+     * @param on True to press pedal, false to release
+     */
+    public function sustainPedal(channel:Int, on:Bool):Void {
+        controlChange(channel, 64, on ? 127 : 0);
+    }
+    
+    /**
+     * Set channel volume
+     * @param channel MIDI channel (0-15)
+     * @param volume Volume level (0-127)
+     */
+    public function channelVolume(channel:Int, volume:Int):Void {
+        controlChange(channel, 7, volume);
+    }
+    
+    /**
+     * Set channel pan (stereo position)
+     * @param channel MIDI channel (0-15)
+     * @param pan Pan value (0=full left, 64=center, 127=full right)
+     */
+    public function channelPan(channel:Int, pan:Int):Void {
+        controlChange(channel, 10, pan);
+    }
+    
+    /**
+     * Set expression (dynamics control)
+     * @param channel MIDI channel (0-15)
+     * @param expression Expression level (0-127)
+     */
+    public function channelExpression(channel:Int, expression:Int):Void {
+        controlChange(channel, 11, expression);
+    }
+    
+    /**
+     * Set modulation wheel (vibrato/effects)
+     * @param channel MIDI channel (0-15)
+     * @param modulation Modulation depth (0-127)
+     */
+    public function modulationWheel(channel:Int, modulation:Int):Void {
+        controlChange(channel, 1, modulation);
+    }
+    
+    /**
+     * Reset all controllers on a channel
+     * @param channel MIDI channel (0-15)
+     */
+    public function resetControllers(channel:Int):Void {
+        controlChange(channel, 121, 0);
+    }
+    
     #if cpp
     // ============================================
     // C++ / CFFI Implementation
@@ -312,8 +385,9 @@ class MidiSynth {
         #end
     }
     
+
     /**
-     * Stop all currently playing notes
+     * Stop all currently playing notes on the synth (all channels)
      */
     public function noteOffAll():Void {
         #if cpp
@@ -325,6 +399,17 @@ class MidiSynth {
             untyped glue.noteOffAll(handle);
         }
         #end
+    }
+
+    /**
+     * Panic: stop all notes and reset controllers on all channels
+     */
+    public function panicStopAllNotes():Void {
+        // Stop all notes and reset controllers on all 16 MIDI channels
+        for (channel in 0...16) {
+            noteOffAll();
+            resetControllers(channel);
+        }
     }
     
     /**

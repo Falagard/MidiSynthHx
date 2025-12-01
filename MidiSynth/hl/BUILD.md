@@ -1,3 +1,13 @@
+# Downloading HashLink
+
+To use these native bindings, you need HashLink installed on your system. Download the latest release for your platform from:
+
+https://github.com/HaxeFoundation/hashlink/releases
+
+Extract the archive and set the `HASHLINK_PATH` environment variable to the extracted directory (see below).
+
+---
+
 # HashLink Native Build Instructions
 
 This directory contains the HashLink native bindings for TinySoundFont used by `MidiSynth`.
@@ -8,26 +18,25 @@ Current naming:
 - Haxe bindings module name: `tsfhl` (see `MidiSynth/haxe/MidiSynth.hx`)
 
 ## Setting up HASHLINK_PATH Environment Variable
-
-Before building, you need to set the `HASHLINK_PATH` environment variable to your HashLink installation directory.
-
-### Windows
-
-**Method 1: System Environment Variable (Permanent)**
-1. Press `Win + X` and select "System"
-2. Click "Advanced system settings"
-3. Click "Environment Variables"
-4. Under "System variables" or "User variables", click "New"
 5. Variable name: `HASHLINK_PATH`
 6. Variable value: Your HashLink path (e.g., `C:\HaxeToolkit\hl` or `C:\Program Files\HashLink`)
 7. Click OK and restart your terminal
 
-**Method 2: PowerShell Session (Temporary)**
+**Method 2: PowerShell Command (Permanent)**
+```powershell
+# Set for current user (recommended)
+[System.Environment]::SetEnvironmentVariable("HASHLINK_PATH", "C:\Users\Clay\Downloads\hashlink-1.15.0-win", "User")
+
+# Then refresh current session
+$env:HASHLINK_PATH = "C:\Users\Clay\Downloads\hashlink-1.15.0-win"
+```
+
+**Method 3: PowerShell Session (Temporary)**
 ```powershell
 $env:HASHLINK_PATH = "C:\HaxeToolkit\hl"  # Adjust to your path
 ```
 
-**Method 3: Let the build script find it automatically**
+**Method 4: Let the build script find it automatically**
 The `build_hdll.bat` script will attempt to locate HashLink by searching for `hl.exe` in common locations:
 - `C:\HaxeToolkit\hl`
 - `C:\Program Files\HashLink`

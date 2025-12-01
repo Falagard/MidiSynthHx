@@ -58,6 +58,13 @@ void tsf_bridge_set_preset(TSFHandle handle, int channel, int bank, int preset);
 // pitch_wheel: 14-bit value (0-16383, center 8192)
 void tsf_bridge_pitch_bend(TSFHandle handle, int channel, int pitch_wheel);
 
+// Send a MIDI control change message
+// handle: synthesizer instance
+// channel: MIDI channel (0-15)
+// controller: MIDI controller number (0-127, e.g., 64=sustain, 7=volume, 10=pan)
+// value: controller value (0-127)
+void tsf_bridge_control_change(TSFHandle handle, int channel, int controller, int value);
+
 // Render audio samples
 // handle: synthesizer instance
 // buffer: output buffer (float32 PCM, interleaved stereo if channels=2)

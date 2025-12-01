@@ -144,6 +144,11 @@ var TSFGlue = (function() {
             module._wasm_tsf_pitch_bend(handle, channel, pitchWheel);
         },
         
+        // Send MIDI control change
+        controlChange: function(handle, channel, controller, value) {
+            module._wasm_tsf_control_change(handle, channel, controller, value);
+        },
+        
         // Render audio samples
         // Returns Float32Array with rendered audio
         render: function(handle, sampleCount) {

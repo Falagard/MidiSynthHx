@@ -332,10 +332,15 @@ class MidiSynthExample extends Sprite {
         
         // Special keys
         if (e.keyCode == Keyboard.SPACE) {
-            // Panic button - stop all notes
+            // Old panic: stop all notes on current channel only
             synth.noteOffAll();
             activeNotes = new Map<Int, Bool>();
             updateInfo("All notes stopped");
+        } else if (e.keyCode == Keyboard.ESCAPE) {
+            // PANIC: stop all notes on all channels and reset controllers
+            synth.panicStopAllNotes();
+            activeNotes = new Map<Int, Bool>();
+            updateInfo("PANIC: All notes and controllers reset");
         }
     }
     
@@ -601,6 +606,32 @@ class MidiSynthExample extends Sprite {
             updateInfo("No MIDI loaded or no events.");
             return;
         }
+
+        // --- Set initial instrument (program) for each channel ---
+        var channelPrograms = new Map<Int, Int>();
+        // Default to program 0 (Acoustic Grand Piano) for all channels
+        for (ch in 0...16) channelPrograms.set(ch, 0);
+        // Scan for first program change per channel
+        for (ev in midiEvents) {
+            if (Reflect.hasField(ev, "type") && ev.type == "program" &&
+                Reflect.hasField(ev, "channel") && Reflect.hasField(ev, "program")) {
+                var ch = ev.channel;
+                var prog = ev.program;
+                if (!channelPrograms.exists(ch) || channelPrograms.get(ch) == 0) {
+                    channelPrograms.set(ch, prog);
+                }
+            }
+        }
+
+        // Set preset for each channel before playback, and log
+        for (ch in 0...16) {
+            var progVal = channelPrograms.get(ch);
+            var progMaybe = Std.isOfType(progVal, Int) ? progVal : Std.parseInt(Std.string(progVal));
+            var prog:Int = (progMaybe != null) ? progMaybe : 0;
+            trace('Initial program for channel ' + ch + ': ' + prog);
+            synth.setPreset(ch, 0, prog);
+        }
+
         midiIsPlaying = true;
         midiPlaybackPos = 0.0;
         midiStartTime = haxe.Timer.stamp();
@@ -639,8 +670,12 @@ class MidiSynthExample extends Sprite {
                         synth.noteOff(ev.channel, ev.note);
                     }
                 case "program":
-                    if (Reflect.hasField(ev, "program") && Std.isOfType(ev.program, Int)) {
-                        synth.setPreset(ev.channel, 0, ev.program);
+                    if (Reflect.hasField(ev, "program")) {
+                        var progVal = ev.program;
+                        var progMaybe = Std.isOfType(progVal, Int) ? progVal : Std.parseInt(Std.string(progVal));
+                        var prog:Int = (progMaybe != null) ? progMaybe : 0;
+                        trace('Program change: channel ' + ev.channel + ' -> program ' + prog);
+                        synth.setPreset(ev.channel, 0, prog);
                     }
                 case "pitchbend":
                     if (Reflect.hasField(ev, "pitchBend") && Std.isOfType(ev.pitchBend, Int)) {

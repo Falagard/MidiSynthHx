@@ -92,6 +92,14 @@ HL_PRIM void HL_NAME(pitch_bend)(vdynamic* handle, int channel, int pitch_wheel)
 }
 DEFINE_PRIM(_VOID, pitch_bend, _DYN _I32 _I32);
 
+// MIDI control change
+// Haxe signature: function controlChange(handle:TSFHandle, channel:Int, controller:Int, value:Int):Void
+HL_PRIM void HL_NAME(control_change)(vdynamic* handle, int channel, int controller, int value) {
+    if (!handle || !handle->v.ptr) return;
+    tsf_bridge_control_change((TSFHandle)handle->v.ptr, channel, controller, value);
+}
+DEFINE_PRIM(_VOID, control_change, _DYN _I32 _I32 _I32);
+
 // Render audio samples
 // Haxe signature: function render(handle:TSFHandle, buffer:hl.Bytes, sampleCount:Int):Int
 HL_PRIM int HL_NAME(render)(vdynamic* handle, vbyte* buffer, int sample_count) {
