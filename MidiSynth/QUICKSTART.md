@@ -68,21 +68,57 @@ lime test hl
 
 ### HTML5 Target
 
-1. Install Emscripten (see MidiSynth/wasm/BUILD.md)
+**Prerequisites:**
+1. Install Emscripten SDK (see MidiSynth/wasm/BUILD.md for details)
+   - Windows: Install Python 3.x, then clone emsdk
+   - The build script will auto-activate emsdk
 
 2. Build the WASM module:
 ```bash
 cd MidiSynth/wasm
-./build_wasm.sh      # Linux/Mac
-# OR
-build_wasm.bat       # Windows
+
+# Windows PowerShell:
+.\build_wasm.ps1
+
+# Linux/Mac:
+./build_wasm.sh
 ```
 
-3. Build and test:
+This generates `tsf.js` (~28KB) and `tsf.wasm` (~49KB) - total ~80KB overhead!
+
+3. Ensure your `project.xml` includes the WASM assets:
+```xml
+<section if="html5">
+    <template path="templates/html5/template/index.html" />
+    <assets path="MidiSynth/wasm/tsf.js" rename="tsf.js" type="text" embed="false" />
+    <assets path="MidiSynth/wasm/tsf.wasm" rename="tsf.wasm" type="binary" embed="false" />
+    <assets path="MidiSynth/wasm/tsf_glue.js" rename="tsf_glue.js" type="text" embed="false" />
+</section>
+```
+
+4. Initialize WASM before creating MidiSynth:
+```haxe
+#if html5
+MidiSynth.initializeWasm(function() {
+    // Create synth after WASM loads
+    synth = new MidiSynth("assets/soundfonts/GM.sf2", 44100, 2);
+});
+#else
+synth = new MidiSynth("Assets/soundfonts/GM.sf2", 44100, 2);
+#end
+```
+
+5. Build and test:
 ```bash
-lime build html5
 lime test html5
 ```
+
+**Important for HTML5:**
+- Audio requires user interaction (click/keypress) to start
+- SoundFont loads asynchronously
+- Use lowercase `assets/` path (not `Assets/`)
+
+See `MidiSynth/wasm/BUILD.md` for detailed HTML5 setup and troubleshooting.
 
 ## Step 4: Use in Your Own Code
 
