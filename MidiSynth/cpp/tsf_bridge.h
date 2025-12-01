@@ -57,7 +57,7 @@ void tsf_bridge_set_preset(TSFHandle handle, int channel, int bank, int preset);
 // buffer: output buffer (float32 PCM, interleaved stereo if channels=2)
 // sample_count: number of samples to render (frames, not total floats)
 // Returns: number of samples actually rendered
-int tsf_bridge_render(TSFHandle handle, float* buffer, int sample_count);
+int tsf_bridge_render(TSFHandle handle, void* buffer, int sample_count);
 
 // Stop all currently playing notes
 void tsf_bridge_note_off_all(TSFHandle handle);

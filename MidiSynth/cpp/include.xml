@@ -4,7 +4,7 @@
     <includePath name="../../MidiSynth/cpp" />
     <includePath name="../../MidiSynth/cpp/tsf" />
     <compilerflag value="-DHXCPP_API" />
-    <!-- If you later switch away from @:cppFileCode, uncomment the next line to compile the bridge -->
-    <!-- <file name="MidiSynth/cpp/tsf_bridge.cpp" /> -->
+    <!-- Compile the C++ bridge providing tsf_bridge_* symbols -->
+    <file name="../../MidiSynth/cpp/tsf_bridge.cpp" />
   </files>
 </xml>

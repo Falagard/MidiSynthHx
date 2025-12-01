@@ -117,13 +117,13 @@ void tsf_bridge_set_preset(TSFHandle handle, int channel, int bank, int preset) 
     tsf_channel_set_bank_preset(synth->synth, channel, bank, preset);
 }
 
-int tsf_bridge_render(TSFHandle handle, float* buffer, int sample_count) {
+int tsf_bridge_render(TSFHandle handle, void* buffer, int sample_count) {
     if (!handle || !buffer || sample_count <= 0) return 0;
     
     TSFSynth* synth = (TSFSynth*)handle;
     
     // Clear buffer first (flag_mixing = 0)
-    tsf_render_float(synth->synth, buffer, sample_count, 0);
+    tsf_render_float(synth->synth, (float*)buffer, sample_count, 0);
     
     return sample_count;
 }

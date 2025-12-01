@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run OpenFL C++ build",
+			"type": "shell",
+			"command": "lime",
+			"args": [
+				"test",
+				"cpp"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

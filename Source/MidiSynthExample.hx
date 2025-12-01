@@ -71,16 +71,31 @@ class MidiSynthExample extends Sprite {
         try {
             trace("Attempting to create MidiSynth...");
             // Create synthesizer with GM.sf2 SoundFont
-            synth = new MidiSynth("assets/soundfonts/GM.sf2", SAMPLE_RATE, CHANNELS);
+            // Use the correct packaged Assets path for native targets
+            synth = new MidiSynth("Assets/soundfonts/GM.sf2", SAMPLE_RATE, CHANNELS);
             trace("MidiSynth created successfully");
             
             // Set up channel 0 with piano (preset 0)
-            synth.setPreset(0, 0, 0);
+            trace("Calling setPreset(0,0,0)...");
+            try {
+                synth.setPreset(0, 0, 0);
+                trace("setPreset completed");
+            } catch (e:Dynamic) {
+                trace("ERROR in setPreset: " + Std.string(e));
+                throw e;
+            }
             
             updateInfo("MidiSynth initialized successfully!\nPress keys to play notes.");
             
             // Set up audio output
-            initializeAudio();
+            trace("Calling initializeAudio()...");
+            try {
+                initializeAudio();
+                trace("initializeAudio completed");
+            } catch (e:Dynamic) {
+                trace("ERROR in initializeAudio: " + Std.string(e));
+                throw e;
+            }
             
             // Set up keyboard input
             stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
@@ -107,6 +122,7 @@ class MidiSynthExample extends Sprite {
     private function onSampleData(event:SampleDataEvent):Void {
         // This callback is called when OpenFL needs more audio data
         // We render audio from the synthesizer and write it to the output buffer
+        trace("onSampleData begin");
         
         #if cpp
         // For C++, we can render directly
@@ -114,7 +130,16 @@ class MidiSynthExample extends Sprite {
         buffer.length = BUFFER_SIZE * CHANNELS * 4; // 4 bytes per float
         
         // Render samples from synth
-        synth.render(buffer, BUFFER_SIZE);
+        try {
+            synth.render(buffer, BUFFER_SIZE);
+        } catch (e:Dynamic) {
+            trace("ERROR in render: " + Std.string(e));
+            // Write silence to avoid popping
+            for (i in 0...BUFFER_SIZE * CHANNELS) {
+                event.data.writeFloat(0.0);
+            }
+            return;
+        }
         
         // Write to output
         buffer.position = 0;
@@ -126,7 +151,15 @@ class MidiSynthExample extends Sprite {
         #elseif hl
         // For HashLink, similar approach
         var buffer = new hl.Bytes(BUFFER_SIZE * CHANNELS * 4);
-        synth.render(buffer, BUFFER_SIZE);
+        try {
+            synth.render(buffer, BUFFER_SIZE);
+        } catch (e:Dynamic) {
+            trace("ERROR in render(hl): " + Std.string(e));
+            for (i in 0...BUFFER_SIZE * CHANNELS) {
+                event.data.writeFloat(0.0);
+            }
+            return;
+        }
         
         // Convert to ByteArray for OpenFL
         for (i in 0...BUFFER_SIZE * CHANNELS) {
@@ -155,6 +188,7 @@ class MidiSynthExample extends Sprite {
             event.data.writeFloat(0.0);
         }
         #end
+        trace("onSampleData end");
     }
     
     private function setupKeyMapping():Void {

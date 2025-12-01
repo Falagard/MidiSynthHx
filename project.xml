@@ -28,6 +28,8 @@
 	<section if="cpp">
 		<includepath name="MidiSynth/cpp" />
 		<includepath name="MidiSynth/cpp/tsf" />
+		<!-- Ensure the native bridge is compiled and linked -->
+		<file name="MidiSynth/cpp/tsf_bridge.cpp" />
 	</section>
 
 	<!-- Ensure native headers are available in the hxcpp include path -->
