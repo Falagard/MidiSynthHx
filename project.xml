@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+
+	<meta title="MidiFeedi" package="com.sample.midifeedi" version="1.0.0" company="Company Name" />
+	<app main="Main" path="Export" file="MidiFeedi" />
+	
+	<!-- Enable console window for debugging -->
+	<window width="800" height="600" background="0x000000" fps="60" />
+	<unset name="no-console" if="windows" />
+
+	<source path="Source" />
+	<source path="MidiSynth/haxe" />
+	
+	<haxelib name="lime" />
+	<haxelib name="haxeui-core" />
+	<haxelib name="haxeui-openfl" />
+	<haxelib name="openfl" />
+	<haxelib name="actuate" />
+    <haxelib name="hxcpp" />
+
+	<!-- Assets -->
+	<assets path="Assets" />
+	
+	<!-- MidiSynth C++ Native Extension -->
+	<hxcpp include="MidiSynth/cpp/include.xml" />
+	
+	<!-- Add MidiSynth include paths for C++ target -->
+	<section if="cpp">
+		<includepath name="MidiSynth/cpp" />
+	</section>
+
+	<!-- Ensure native headers are available in the hxcpp include path -->
+	<!-- Place headers where hxcpp adds -Iinclude -->
+	<template path="MidiSynth/cpp/tsf_bridge.h" rename="include/tsf_bridge.h" />
+	<template path="MidiSynth/cpp/tsf/tsf.h" rename="include/tsf/tsf.h" />
+	
+	<!-- MidiSynth HashLink Native Extension -->
+	<section if="hl">
+		<ndll name="tsf" />
+		<!-- Note: HashLink .hdll must be pre-compiled and placed in output directory -->
+		<!-- See MidiSynth/hl/BUILD.md for compilation instructions -->
+	</section>
+	
+	<!-- MidiSynth WebAssembly for HTML5 -->
+	<section if="html5">
+		<!-- Include WASM module and JS glue -->
+		<assets path="MidiSynth/wasm/tsf.js" rename="tsf.js" type="text" embed="false" />
+		<assets path="MidiSynth/wasm/tsf.wasm" rename="tsf.wasm" type="binary" embed="false" />
+		<assets path="MidiSynth/wasm/tsf_glue.js" rename="tsf_glue.js" type="text" embed="false" />
+		
+		<!-- Include JS files in HTML template -->
+		<template path="MidiSynth/wasm/tsf_glue.js" rename="tsf_glue.js" />
+	</section>
+	
+</project>

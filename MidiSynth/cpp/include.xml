@@ -1,0 +1,10 @@
+<xml>
+  <section>
+    <files id="haxe">
+      <compilerflag value="-IC:/Src/ge/MidiFeedi/MidiSynth/cpp" />
+      <compilerflag value="-IC:/Src/ge/MidiFeedi/MidiSynth/cpp/tsf" />
+      <compilerflag value="-DHXCPP_API" />
+      <file name="C:/Src/ge/MidiFeedi/MidiSynth/cpp/tsf_bridge.cpp" />
+    </files>
+  </section>
+</xml>

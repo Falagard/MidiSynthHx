@@ -1,0 +1,9 @@
+<xml>
+  <files id="__main__">
+    <compilerflag value="-IC:/Src/ge/MidiFeedi/MidiSynth/cpp" />
+    <compilerflag value="-IC:/Src/ge/MidiFeedi/MidiSynth/cpp/tsf" />
+    <compilerflag value="-DHXCPP_API" />
+    <compilerflag value="-DTSF_IMPLEMENTATION" />
+    <file name="C:/Src/ge/MidiFeedi/MidiSynth/cpp/tsf_bridge.cpp" />
+  </files>
+</xml>
