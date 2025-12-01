@@ -38,6 +38,8 @@ class MidiSynthExample extends Sprite {
     private var audioQueue:Array<haxe.io.Bytes> = [];
     // --- MIDI File Loading and Playback ---
     private var midiLoadButton:openfl.display.SimpleButton;
+    // Track active notes during playback for stuck note analysis
+    private var playbackActiveNotes:Map<String, Int> = new Map();
     private var midiEvents:Array<Dynamic> = [];
     private var midiPlaybackTimer:Timer;
     private var midiPlaybackPos:Float = 0.0;
@@ -338,9 +340,18 @@ class MidiSynthExample extends Sprite {
             updateInfo("All notes stopped");
         } else if (e.keyCode == Keyboard.ESCAPE) {
             // PANIC: stop all notes on all channels and reset controllers
-            synth.panicStopAllNotes();
+            for (channel in 0...16) {
+                // Release sustain pedal
+                synth.controlChange(channel, 64, 0);
+                // All Notes Off
+                synth.controlChange(channel, 123, 0);
+                // All Sound Off (immediate)
+                synth.controlChange(channel, 120, 0);
+            }
+            synth.noteOffAll();
+            synth.panicStopAllNotes(); // Also resets controllers
             activeNotes = new Map<Int, Bool>();
-            updateInfo("PANIC: All notes and controllers reset");
+            updateInfo("PANIC: All notes, sound, and controllers reset");
         }
     }
     
@@ -615,6 +626,8 @@ class MidiSynthExample extends Sprite {
 
     // Start MIDI playback
     private function startMidiPlayback():Void {
+            // Reset playback note tracking
+            playbackActiveNotes = new Map();
         if (!midiFileLoaded || midiEvents.length == 0) {
             updateInfo("No MIDI loaded or no events.");
             return;
@@ -659,7 +672,44 @@ class MidiSynthExample extends Sprite {
     private function stopMidiPlayback():Void {
         midiIsPlaying = false;
         if (midiPlaybackTimer != null) midiPlaybackTimer.stop();
-        updateInfo("MIDI playback stopped.");
+        // After playback, keep rendering audio until all voices are silent (release tail)
+        var releaseTimeoutMs = 1500; // Max time to wait for release (ms)
+        var releaseCheckInterval = 50; // ms
+        var waited = 0;
+        function logActiveVoices() {
+            var voices = synth.getActiveVoices();
+            trace('Active voices after stop: ' + voices);
+            // Print stuck notes summary
+            if (playbackActiveNotes != null && playbackActiveNotes.keys().hasNext()) {
+                var stuckList = [];
+                for (key in playbackActiveNotes.keys()) {
+                    var count = playbackActiveNotes.get(key);
+                    if (count > 0) stuckList.push(key + " (" + count + ")");
+                }
+                if (stuckList.length > 0) {
+                    trace('Stuck notes after playback: ' + stuckList.join(", "));
+                } else {
+                    trace('No stuck notes detected in playback event tracking.');
+                }
+            }
+            #if debug
+            if (voices > 0 && Reflect.hasField(synth, 'debugListVoices')) {
+                var stuck = Reflect.callMethod(synth, Reflect.field(synth, 'debugListVoices'), []);
+                trace('Stuck voices detail: ' + Std.string(stuck));
+            }
+            #end
+        }
+        function checkReleaseTail() {
+            var voices = synth.getActiveVoices();
+            if (voices > 0 && waited < releaseTimeoutMs) {
+                waited += releaseCheckInterval;
+                haxe.Timer.delay(checkReleaseTail, releaseCheckInterval);
+            } else {
+                logActiveVoices();
+                updateInfo("MIDI playback stopped.");
+            }
+        }
+        checkReleaseTail();
     }
 
     // MIDI playback timer tick
@@ -670,34 +720,57 @@ class MidiSynthExample extends Sprite {
         // Play all events whose time <= elapsed
         while (midiPlaybackPos < midiEvents.length) {
             var ev = midiEvents[Std.int(midiPlaybackPos)];
-            trace('Playback tick: elapsed=' + elapsed + 'ms, next event[' + midiPlaybackPos + '].time=' + Std.string(ev.time) + ' type=' + Std.string(ev.type));
+            // Removed extraneous playback tick logging
             var evTime:Float = cast(ev.time, Float);
             if (evTime > elapsed) break;
+            var ch = Std.int(ev.channel);
+            var note = Std.isOfType(ev.note, Int) ? ev.note : Std.parseInt(Std.string(ev.note));
+            var velocity = Std.isOfType(ev.velocity, Int) ? ev.velocity : Std.parseInt(Std.string(ev.velocity));
             switch (ev.type) {
                 case "on":
                     if (Reflect.hasField(ev, "note") && Reflect.hasField(ev, "velocity") && Std.isOfType(ev.note, Int) && Std.isOfType(ev.velocity, Int)) {
-                        synth.noteOn(ev.channel, ev.note, ev.velocity);
+                        var key = ch + ":" + note;
+                        if (playbackActiveNotes.exists(key) && playbackActiveNotes.get(key) > 0) {
+                            trace('WARNING: NOTE ON received for already active note: channel=' + ch + ' note=' + note + ' (count=' + playbackActiveNotes.get(key) + ')');
+                            // Workaround: forcibly send NOTE OFF before NOTE ON
+                            synth.noteOff(ch, note);
+                            // Track note-off
+                            var v = playbackActiveNotes.get(key) - 1;
+                            if (v <= 0) playbackActiveNotes.remove(key); else playbackActiveNotes.set(key, v);
+                        }
+                        synth.noteOn(ch, note, velocity);
+                        // Track note-on
+                        playbackActiveNotes.set(key, (playbackActiveNotes.exists(key) ? playbackActiveNotes.get(key) : 0) + 1);
                     }
                 case "off":
                     if (Reflect.hasField(ev, "note") && Std.isOfType(ev.note, Int)) {
-                        synth.noteOff(ev.channel, ev.note);
+                        synth.noteOff(ch, note);
+                        // Track note-off
+                        var key = ch + ":" + note;
+                        if (playbackActiveNotes.exists(key)) {
+                            var v = playbackActiveNotes.get(key) - 1;
+                            if (v <= 0) playbackActiveNotes.remove(key); else playbackActiveNotes.set(key, v);
+                        }
                     }
                 case "program":
                     if (Reflect.hasField(ev, "program")) {
                         var progVal = ev.program;
                         var progMaybe = Std.isOfType(progVal, Int) ? progVal : Std.parseInt(Std.string(progVal));
                         var prog:Int = (progMaybe != null) ? progMaybe : 0;
-                        trace('Program change: channel ' + ev.channel + ' -> program ' + prog);
-                        synth.setPreset(ev.channel, 0, prog);
+                        trace('Program change: channel ' + ch + ' -> program ' + prog);
+                        synth.setPreset(ch, 0, prog);
                     }
                 case "pitchbend":
                     if (Reflect.hasField(ev, "pitchBend") && Std.isOfType(ev.pitchBend, Int)) {
-                        synth.pitchBend(ev.channel, ev.pitchBend);
+                        synth.pitchBend(ch, ev.pitchBend);
                     }
                 case "control":
                     // Use ev.note as controller number, ev.velocity as value
                     if (Std.isOfType(ev.note, Int) && Std.isOfType(ev.velocity, Int)) {
-                        synth.controlChange(ev.channel, ev.note, ev.velocity);
+                        if (note == 64) {
+                            trace('SUSTAIN PEDAL: channel=' + ch + ' value=' + velocity);
+                        }
+                        synth.controlChange(ch, note, velocity);
                     }
             }
             midiPlaybackPos++;
