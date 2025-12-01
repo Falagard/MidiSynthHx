@@ -115,6 +115,17 @@ class MidiSynthExample extends Sprite {
         // Create a Sound object for dynamic audio generation
         sound = new Sound();
 
+        // Register callback for sample data BEFORE starting playback
+        sound.addEventListener(SampleDataEvent.SAMPLE_DATA, onSampleData);
+        trace("Registered SAMPLE_DATA listener");
+
+        // Start playback - this will begin calling onSampleData
+        soundChannel = sound.play();
+        if (soundChannel == null) {
+            throw "Failed to start audio playback";
+        }
+        trace("sound.play() successful, soundChannel created");
+
         // Start a timer to render audio outside the audio callback
         var ms = Math.max(1, Math.floor(1000 * BUFFER_SIZE / SAMPLE_RATE / 2));
         renderTimer = new Timer(ms);
@@ -127,18 +138,11 @@ class MidiSynthExample extends Sprite {
             for (j in 0...BUFFER_SIZE * CHANNELS) silence.setFloat(j * 4, 0.0);
             audioQueue.push(silence);
         }
-
-        // Start playback
-        soundChannel = sound.play();
-        if (soundChannel == null) {
-            throw "Failed to start audio playback";
-        }
-
-        // Register callback for sample data
-        sound.addEventListener(SampleDataEvent.SAMPLE_DATA, onSampleData);
         
         trace("Audio stream started");
-    }    private function onRenderTick(e:TimerEvent):Void {
+    }    private var renderCount:Int = 0;
+    
+    private function onRenderTick(e:TimerEvent):Void {
         try {
             #if cpp
             // Render two buffers per tick to keep ahead of the callback
@@ -146,6 +150,21 @@ class MidiSynthExample extends Sprite {
             audioQueue.push(bytes);
             var bytes2 = synth.renderBytes(BUFFER_SIZE);
             audioQueue.push(bytes2);
+            
+            // Debug: Log first render and periodically check queue depth
+            renderCount++;
+            if (renderCount == 1) {
+                trace("First render: bytes.length=" + bytes.length);
+                if (bytes.length >= 16) {
+                    var sample0 = bytes.getFloat(0);
+                    var sample1 = bytes.getFloat(4);
+                    var sample2 = bytes.getFloat(8);
+                    trace("First 3 samples: " + sample0 + ", " + sample1 + ", " + sample2);
+                }
+            }
+            if (renderCount % 100 == 0) {
+                trace("Queue depth: " + audioQueue.length + ", Active voices: " + synth.getActiveVoices());
+            }
             #elseif hl
             var hlbuf = new hl.Bytes(BUFFER_SIZE * CHANNELS * 4);
             synth.render(hlbuf, BUFFER_SIZE);
@@ -172,11 +191,50 @@ class MidiSynthExample extends Sprite {
         }
     }
     
+    private var sampleDataCount:Int = 0;
+    private var lastNonZero:Float = 0.0;
+    
     private function onSampleData(event:SampleDataEvent):Void {
-        // Force silence to validate device stability during init
+        sampleDataCount++;
+        
+        #if cpp
+        var bytes:Null<haxe.io.Bytes> = audioQueue.length > 0 ? audioQueue.shift() : null;
+        
+        if (bytes == null || bytes.length == 0) {
+            // Write silence if queue is empty
+            for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
+            if (sampleDataCount % 50 == 0) {
+                trace("WARNING: Audio queue empty, writing silence");
+            }
+            return;
+        }
+        
+        // Write buffered audio samples
+        var totalFloats = BUFFER_SIZE * CHANNELS;
+        for (i in 0...totalFloats) {
+            var sample = bytes.getFloat(i * 4);
+            event.data.writeFloat(sample);
+            
+            // Track non-zero samples
+            if (sample != 0.0) lastNonZero = sample;
+        }
+        
+        // Debug: Log first callback and periodically report
+        if (sampleDataCount == 1) {
+            var s0 = bytes.getFloat(0);
+            var s1 = bytes.getFloat(4);
+            trace("First onSampleData: wrote " + totalFloats + " floats, first samples: " + s0 + ", " + s1);
+        }
+        if (sampleDataCount % 100 == 0) {
+            trace("onSampleData #" + sampleDataCount + ", queue: " + audioQueue.length + ", lastNonZero: " + lastNonZero);
+        }
+        
+        #else
+        // Fallback: write silence
         for (i in 0...BUFFER_SIZE * CHANNELS) {
             event.data.writeFloat(0.0);
         }
+        #end
     }
     
     private function setupKeyMapping():Void {
