@@ -1,6 +1,8 @@
 package;
 
 import openfl.display.Sprite;
+import moonchart.parsers.MidiParser;
+import openfl.utils.ByteArray;
 import openfl.events.Event;
 import openfl.events.MouseEvent;
 import openfl.events.KeyboardEvent;
@@ -34,6 +36,16 @@ class MidiSynthExample extends Sprite {
     private var infoText:TextField;
     private var renderTimer:Timer;
     private var audioQueue:Array<haxe.io.Bytes> = [];
+    // --- MIDI File Loading and Playback ---
+    private var midiLoadButton:openfl.display.SimpleButton;
+    private var midiEvents:Array<{time:Float, type:String, channel:Int, note:Int, velocity:Int}> = [];
+    private var midiPlaybackTimer:Timer;
+    private var midiPlaybackPos:Float = 0.0;
+    private var midiIsPlaying:Bool = false;
+    private var midiStartTime:Float = 0.0;
+    private var midiTempo:Float = 500000.0; // microseconds per quarter note (default 120bpm)
+    private var midiTicksPerQuarter:Int = 480; // default, will be set from file
+    private var midiFileLoaded:Bool = false;
     #if html5
     private var audioStarted:Bool = false;
     #end
@@ -75,6 +87,12 @@ class MidiSynthExample extends Sprite {
         #else
         initializeSynth();
         #end
+
+        // Add MIDI load button below infoText
+        midiLoadButton = createMidiLoadButton();
+        midiLoadButton.x = 10;
+        midiLoadButton.y = infoText.y + infoText.height + 10;
+        addChild(midiLoadButton);
     }
 
     #if html5
@@ -363,6 +381,22 @@ class MidiSynthExample extends Sprite {
         addChild(infoText);
         
         updateInfo("Initializing MidiSynth...");
+        // Add play/stop buttons for MIDI
+        var playBtn = new openfl.display.SimpleButton();
+        var up = new Sprite(); up.graphics.beginFill(0x228822); up.graphics.drawRect(0,0,60,28); up.graphics.endFill();
+        var tf = new TextField(); tf.text = "Play"; tf.width = 60; tf.height = 28; tf.selectable = false; up.addChild(tf);
+        playBtn.upState = playBtn.overState = playBtn.downState = playBtn.hitTestState = up;
+        playBtn.x = 140; playBtn.y = 220;
+        playBtn.addEventListener(MouseEvent.CLICK, function(_) startMidiPlayback());
+        addChild(playBtn);
+
+        var stopBtn = new openfl.display.SimpleButton();
+        var up2 = new Sprite(); up2.graphics.beginFill(0xAA2222); up2.graphics.drawRect(0,0,60,28); up2.graphics.endFill();
+        var tf2 = new TextField(); tf2.text = "Stop"; tf2.width = 60; tf2.height = 28; tf2.selectable = false; up2.addChild(tf2);
+        stopBtn.upState = stopBtn.overState = stopBtn.downState = stopBtn.hitTestState = up2;
+        stopBtn.x = 210; stopBtn.y = 220;
+        stopBtn.addEventListener(MouseEvent.CLICK, function(_) stopMidiPlayback());
+        addChild(stopBtn);
     }
     
     private function updateInfo(text:String):Void {
@@ -391,6 +425,226 @@ class MidiSynthExample extends Sprite {
         
         if (synth != null) {
             synth.dispose();
+        }
+    }
+    // --- MIDI File Loading and Playback ---
+    private function createMidiLoadButton():openfl.display.SimpleButton {
+        var up:Sprite = new Sprite();
+        up.graphics.beginFill(0x4444AA);
+        up.graphics.drawRect(0, 0, 120, 32);
+        up.graphics.endFill();
+        var tf = new TextField();
+        tf.text = "Load MIDI File";
+        tf.width = 120;
+        tf.height = 32;
+        tf.selectable = false;
+        up.addChild(tf);
+
+        var over:Sprite = new Sprite();
+        over.graphics.beginFill(0x6666CC);
+        over.graphics.drawRect(0, 0, 120, 32);
+        over.graphics.endFill();
+        var tf2 = new TextField();
+        tf2.text = "Load MIDI File";
+        tf2.width = 120;
+        tf2.height = 32;
+        tf2.selectable = false;
+        over.addChild(tf2);
+
+        var down:Sprite = new Sprite();
+        down.graphics.beginFill(0x222288);
+        down.graphics.drawRect(0, 0, 120, 32);
+        down.graphics.endFill();
+        var tf3 = new TextField();
+        tf3.text = "Load MIDI File";
+        tf3.width = 120;
+        tf3.height = 32;
+        tf3.selectable = false;
+        down.addChild(tf3);
+
+        var button = new openfl.display.SimpleButton(up, over, down, up);
+        button.addEventListener(MouseEvent.CLICK, onMidiLoadClick);
+        return button;
+    }
+
+    private function onMidiLoadClick(e:MouseEvent):Void {
+        #if html5
+        // Use <input type="file"> for HTML5
+        var input:js.html.InputElement = cast js.Browser.document.createElement('input');
+        input.type = 'file';
+        input.accept = '.mid,.midi';
+        input.onchange = function(ev) {
+            var files = input.files;
+            if (files != null && files.length > 0) {
+                var file = files[0];
+                var reader = new js.html.FileReader();
+                reader.onload = function(_) {
+                    var bytes = haxe.io.Bytes.ofData(reader.result);
+                    onMidiFileLoaded(bytes);
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        };
+        input.click();
+        #else
+        // Native: use openfl.utils.FileReference
+        var fileRef = new openfl.net.FileReference();
+        fileRef.addEventListener(openfl.events.Event.SELECT, function(_) {
+            fileRef.load();
+        });
+        fileRef.addEventListener(openfl.events.Event.COMPLETE, function(_) {
+            var bytes = fileRef.data;
+            onMidiFileLoaded(bytes);
+        });
+        fileRef.browse([new openfl.net.FileFilter("MIDI Files", "*.mid;*.midi")]);
+        #end
+    }
+
+    private function onMidiFileLoaded(bytes:haxe.io.Bytes):Void {
+        updateInfo("MIDI file loaded: " + bytes.length + " bytes\nParsing MIDI file...");
+        try {
+            midiEvents = parseMidiFile(bytes);
+            midiFileLoaded = true;
+            trace('First 10 parsed MIDI events:');
+            for (i in 0...Std.int(Math.min(10, midiEvents.length))) {
+                var ev = midiEvents[i];
+                trace('  [' + i + '] time=' + ev.time + ' type=' + ev.type + ' ch=' + ev.channel + ' note=' + ev.note + ' vel=' + ev.velocity);
+            }
+            updateInfo('MIDI file parsed. Found ' + midiEvents.length + ' note events. Ready to play.');
+        } catch (e:Dynamic) {
+            midiFileLoaded = false;
+            updateInfo('ERROR parsing MIDI file: ' + Std.string(e));
+            #if debug
+            trace('MIDI parse error: ' + Std.string(e));
+            #end
+        }
+        // Optionally, auto-start playback
+        //startMidiPlayback();
+    }
+
+    // Parse MIDI file and return event list using moonchart
+    private function parseMidiFile(bytes:haxe.io.Bytes):Array<{time:Float, type:String, channel:Int, note:Int, velocity:Int}> {
+        try {
+            var parser = new MidiParser();
+            var midi = parser.parseBytes(bytes);
+            var events = [];
+            var ticksPerQuarter = midi.division;
+            var tempo = 500000.0; // default 120bpm
+            var usPerTick = tempo / ticksPerQuarter; // microseconds per tick
+            var msPerTick = usPerTick / 1000.0; // milliseconds per tick
+            var currentTime = 0.0;
+            var lastTick = 0;
+            // Find tempo if present
+            for (track in midi.tracks) {
+                for (event in track) {
+                    switch (event) {
+                        case TEMPO_CHANGE(t, tick):
+                            tempo = t;
+                            usPerTick = tempo / ticksPerQuarter;
+                        case END_TRACK(_):
+                            // ignore
+                        case KEY_SIGNATURE(_, _, _):
+                            // ignore
+                        case MESSAGE(_, _):
+                            // ignore
+                        case TEXT(_, _, _):
+                            // ignore
+                        case TIME_SIGNATURE(_, _, _, _, _):
+                            // ignore
+                        default:
+                            // ignore unknown event types
+                    }
+                }
+            }
+            // Parse note events
+            for (track in midi.tracks) {
+                lastTick = 0;
+                currentTime = 0.0;
+                for (event in track) {
+                    var tick = 0;
+                    switch (event) {
+                        case MESSAGE(bytes, t):
+                            tick = t;
+                            var dt = tick - lastTick;
+                            currentTime += dt * msPerTick; // ms
+                            lastTick = tick;
+                            var status = bytes[0] & 0xF0;
+                            var channel = bytes[0] & 0x0F;
+                            if (status == 0x90 && bytes[2] > 0) {
+                                // Note on
+                                events.push({time: currentTime, type: "on", channel: channel, note: bytes[1], velocity: bytes[2]});
+                            } else if ((status == 0x80) || (status == 0x90 && bytes[2] == 0)) {
+                                // Note off
+                                events.push({time: currentTime, type: "off", channel: channel, note: bytes[1], velocity: bytes[2]});
+                            }
+                        case TEMPO_CHANGE(_, _):
+                            // ignore
+                        case END_TRACK(_):
+                            // ignore
+                        case KEY_SIGNATURE(_, _, _):
+                            // ignore
+                        case TEXT(_, _, _):
+                            // ignore
+                        case TIME_SIGNATURE(_, _, _, _, _):
+                            // ignore
+                        default:
+                            // ignore unknown event types
+                    }
+                }
+            }
+            return events;
+        } catch (e:Dynamic) {
+            #if debug
+            trace('parseMidiFile error: ' + Std.string(e));
+            #end
+            throw e;
+        }
+    }
+
+    // Start MIDI playback
+    private function startMidiPlayback():Void {
+        if (!midiFileLoaded || midiEvents.length == 0) {
+            updateInfo("No MIDI loaded or no events.");
+            return;
+        }
+        midiIsPlaying = true;
+        midiPlaybackPos = 0.0;
+        midiStartTime = haxe.Timer.stamp();
+        if (midiPlaybackTimer != null) midiPlaybackTimer.stop();
+        midiPlaybackTimer = new Timer(10); // 10ms tick
+        midiPlaybackTimer.addEventListener(TimerEvent.TIMER, onMidiPlaybackTick);
+        midiPlaybackTimer.start();
+        updateInfo("MIDI playback started.");
+    }
+
+    // Stop MIDI playback
+    private function stopMidiPlayback():Void {
+        midiIsPlaying = false;
+        if (midiPlaybackTimer != null) midiPlaybackTimer.stop();
+        updateInfo("MIDI playback stopped.");
+    }
+
+    // MIDI playback timer tick
+    private function onMidiPlaybackTick(e:TimerEvent):Void {
+        if (!midiIsPlaying) return;
+        var now = haxe.Timer.stamp();
+        var elapsed = (now - midiStartTime) * 1000.0; // ms
+        // Play all events whose time <= elapsed
+        while (midiPlaybackPos < midiEvents.length) {
+            var ev = midiEvents[Std.int(midiPlaybackPos)];
+            trace('Playback tick: elapsed=' + elapsed + 'ms, next event[' + midiPlaybackPos + '].time=' + ev.time + ' type=' + ev.type);
+            if (ev.time > elapsed) break;
+            switch (ev.type) {
+                case "on":
+                    synth.noteOn(ev.channel, ev.note, ev.velocity);
+                case "off":
+                    synth.noteOff(ev.channel, ev.note);
+            }
+            midiPlaybackPos++;
+        }
+        // Stop if done
+        if (midiPlaybackPos >= midiEvents.length) {
+            stopMidiPlayback();
         }
     }
 }

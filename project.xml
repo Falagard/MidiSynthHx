@@ -17,7 +17,8 @@
 	<haxelib name="openfl" />
 	<haxelib name="actuate" />
     <haxelib name="hxcpp" />
-
+    <haxelib name="moonchart" />
+    
 	<!-- Assets -->
 	<assets path="Assets" />
 	

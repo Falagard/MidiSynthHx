@@ -29,13 +29,8 @@
 	
 	<style>
 		html,body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-		#openfl-content { background: ::WIN_BACKGROUND::; width: 100%; height: 100%; }
-		::foreach assets::::if (type == "font")::
-		@font-face {
-			font-family: '::id::';
-			src: url('::resourceName::');
-		}
-		::end::::end::
+		   #openfl-content { background: #222; width: 100%; height: 100%; }
+		   /* Template macros for fonts and background are disabled for static HTML preview. */
 	</style>
 	
 </head>
@@ -46,7 +41,7 @@
 	<div id="openfl-content"></div>
 	
 	<script type="text/javascript">
-		lime.embed ("::APP_FILE::", "openfl-content", ::WIN_WIDTH::, ::WIN_HEIGHT::, { parameters: {} });
+		// lime.embed ("::APP_FILE::", "openfl-content", ::WIN_WIDTH::, ::WIN_HEIGHT::, { parameters: {} });
 	</script>
 	
 </body>
