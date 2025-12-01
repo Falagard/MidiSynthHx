@@ -178,25 +178,22 @@ class MidiSynthExample extends Sprite {
     }
     
     private function onSampleData(event:SampleDataEvent):Void {
-        #if cpp
+        #if (cpp || hl)
         var bytes:Null<haxe.io.Bytes> = audioQueue.length > 0 ? audioQueue.shift() : null;
-        
+
         if (bytes == null || bytes.length == 0) {
-            // Write silence if queue is empty
+            // Underrun: write silence
             for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
             return;
         }
-        
-        // Write buffered audio samples
+
+        // Write buffered audio samples (float32 interleaved)
         for (i in 0...BUFFER_SIZE * CHANNELS) {
             event.data.writeFloat(bytes.getFloat(i * 4));
         }
-        
         #else
-        // Fallback: write silence
-        for (i in 0...BUFFER_SIZE * CHANNELS) {
-            event.data.writeFloat(0.0);
-        }
+        // Other targets: silence (not implemented)
+        for (i in 0...BUFFER_SIZE * CHANNELS) event.data.writeFloat(0.0);
         #end
     }
     

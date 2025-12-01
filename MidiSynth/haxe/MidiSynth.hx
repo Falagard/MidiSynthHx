@@ -111,39 +111,41 @@ class MidiSynth {
     // ============================================
     
     private function initHashLink(path:String):Void {
-        var pathBytes = Bytes.fromString(path);
-        handle = tsf_init(pathBytes);
+        var fileBytes = sys.io.File.getBytes(path);
+        handle = tsf_init_memory(fileBytes, fileBytes.length);
         if (handle == null) {
-            throw "Failed to load SoundFont: " + path;
+            throw "Failed to load SoundFont (memory): " + path;
         }
         tsf_set_output(handle, sampleRate, channels);
     }
     
-    @:hlNative("tsf", "init")
-    private static function tsf_init(path:Bytes):Dynamic { return null; }
+    @:hlNative("tsfhl", "init")
+    private static function tsf_init(path:String):Dynamic { return null; } // unused on HL; kept for compatibility
+    @:hlNative("tsfhl", "init_memory")
+    private static function tsf_init_memory(buf:Bytes, size:Int):Dynamic { return null; }
     
-    @:hlNative("tsf", "close")
+    @:hlNative("tsfhl", "close")
     private static function tsf_close(handle:Dynamic):Void {}
     
-    @:hlNative("tsf", "set_output")
+    @:hlNative("tsfhl", "set_output")
     private static function tsf_set_output(handle:Dynamic, sampleRate:Int, channels:Int):Void {}
     
-    @:hlNative("tsf", "note_on")
+    @:hlNative("tsfhl", "note_on")
     private static function tsf_note_on(handle:Dynamic, channel:Int, note:Int, velocity:Int):Void {}
     
-    @:hlNative("tsf", "note_off")
+    @:hlNative("tsfhl", "note_off")
     private static function tsf_note_off(handle:Dynamic, channel:Int, note:Int):Void {}
     
-    @:hlNative("tsf", "set_preset")
+    @:hlNative("tsfhl", "set_preset")
     private static function tsf_set_preset(handle:Dynamic, channel:Int, bank:Int, preset:Int):Void {}
     
-    @:hlNative("tsf", "render")
+    @:hlNative("tsfhl", "render")
     private static function tsf_render(handle:Dynamic, buffer:Bytes, samples:Int):Int { return 0; }
     
-    @:hlNative("tsf", "note_off_all")
+    @:hlNative("tsfhl", "note_off_all")
     private static function tsf_note_off_all(handle:Dynamic):Void {}
-    
-    @:hlNative("tsf", "active_voices")
+
+    @:hlNative("tsfhl", "active_voices")
     private static function tsf_active_voices(handle:Dynamic):Int { return 0; }
     #end
     

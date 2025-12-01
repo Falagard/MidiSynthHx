@@ -37,9 +37,8 @@
 	
 	<!-- MidiSynth HashLink Native Extension -->
 	<section if="hl">
-		<ndll name="tsf" />
-		<!-- Note: HashLink .hdll must be pre-compiled and placed in output directory -->
-		<!-- See MidiSynth/hl/BUILD.md for compilation instructions -->
+		<!-- HashLink native library (tsf.hdll) is built manually -->
+		<!-- After building, copy tsf.hdll into Export/hl/bin before running lime test hl -->
 	</section>
 	
 	<!-- MidiSynth WebAssembly for HTML5 -->
