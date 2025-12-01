@@ -37,8 +37,8 @@
 	
 	<!-- MidiSynth HashLink Native Extension -->
 	<section if="hl">
-		<!-- HashLink native library (tsf.hdll) is built manually -->
-		<!-- After building, copy tsf.hdll into Export/hl/bin before running lime test hl -->
+		<!-- HashLink native library 'tsfhl.hdll' built by MidiSynth/hl/build_hdll.bat -->
+		<!-- Copy tsfhl.hdll into Export/hl/bin before lime test hl (not auto-built by Lime) -->
 	</section>
 	
 	<!-- MidiSynth WebAssembly for HTML5 -->

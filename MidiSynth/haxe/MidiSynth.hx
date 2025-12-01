@@ -119,8 +119,6 @@ class MidiSynth {
         tsf_set_output(handle, sampleRate, channels);
     }
     
-    @:hlNative("tsfhl", "init")
-    private static function tsf_init(path:String):Dynamic { return null; } // unused on HL; kept for compatibility
     @:hlNative("tsfhl", "init_memory")
     private static function tsf_init_memory(buf:Bytes, size:Int):Dynamic { return null; }
     

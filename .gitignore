@@ -1,2 +1,15 @@
 .haxelib
-Export
+# Ignore entire Export build outputs
+Export/**
+!Export/hl/bin/tsfhl.hdll
+
+# HashLink build artifacts (native)
+MidiSynth/hl/*.obj
+MidiSynth/hl/*.lib
+MidiSynth/hl/*.exp
+MidiSynth/hl/tsfhl.hdll
+MidiSynth/hl/tsfprim.hdll
+MidiSynth/hl/tsf_hl_combined.cpp
+
+# If you ever want to keep a placeholder inside Export, uncomment:
+# !Export/.gitkeep
