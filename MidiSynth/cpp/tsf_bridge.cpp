@@ -37,8 +37,8 @@ TSFHandle tsf_bridge_init(const char* path) {
     handle->sampleRate = 44100;
     handle->channels = 2;
     
-    // Set default output to stereo, 44.1kHz, 0dB gain
-    tsf_set_output(synth, TSF_STEREO_INTERLEAVED, 44100, 0.0f);
+    // Set default output to stereo, 44.1kHz, -6dB gain to prevent clipping
+    tsf_set_output(synth, TSF_STEREO_INTERLEAVED, 44100, -6.0f);
     
     // Initialize channel 0 to use preset 0 (piano in most SoundFonts)
     tsf_channel_set_bank_preset(synth, 0, 0, 0);
@@ -65,7 +65,7 @@ TSFHandle tsf_bridge_init_memory(const void* buffer, int size) {
     handle->sampleRate = 44100;
     handle->channels = 2;
     
-    tsf_set_output(synth, TSF_STEREO_INTERLEAVED, 44100, 0.0f);
+    tsf_set_output(synth, TSF_STEREO_INTERLEAVED, 44100, -6.0f);
     tsf_channel_set_bank_preset(synth, 0, 0, 0);
     
     return (TSFHandle)handle;
@@ -89,7 +89,7 @@ void tsf_bridge_set_output(TSFHandle handle, int sample_rate, int channels) {
     synth->channels = channels;
     
     enum TSFOutputMode mode = (channels == 1) ? TSF_MONO : TSF_STEREO_INTERLEAVED;
-    tsf_set_output(synth->synth, mode, sample_rate, 0.0f);
+    tsf_set_output(synth->synth, mode, sample_rate, -6.0f);
 }
 
 void tsf_bridge_note_on(TSFHandle handle, int channel, int note, int velocity) {

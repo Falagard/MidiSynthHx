@@ -419,17 +419,19 @@ class MidiSynth {
      * @param preset Preset number (0-127, e.g., 0 = Acoustic Grand Piano)
      */
     public function setPreset(channel:Int, bank:Int, preset:Int):Void {
+        // Enforce General MIDI drum channel: channel 9 (MIDI channel 10) always uses bank 128
+        var actualBank = (channel == 9) ? 128 : bank;
         #if cpp
-        MidiSynthNative.setPreset(handle, channel, bank, preset);
+        MidiSynthNative.setPreset(handle, channel, actualBank, preset);
         #elseif hl
-        tsf_set_preset(handle, channel, bank, preset);
+        tsf_set_preset(handle, channel, actualBank, preset);
         #elseif js
         if (isReady && handle != 0) {
-            untyped glue.setPreset(handle, channel, bank, preset);
+            untyped glue.setPreset(handle, channel, actualBank, preset);
         } else {
             // Defer until ready
             readyCallbacks.push(function() {
-                untyped glue.setPreset(handle, channel, bank, preset);
+                untyped glue.setPreset(handle, channel, actualBank, preset);
             });
         }
         #end
