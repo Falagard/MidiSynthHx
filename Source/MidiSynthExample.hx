@@ -38,7 +38,7 @@ class MidiSynthExample extends Sprite {
     private var audioQueue:Array<haxe.io.Bytes> = [];
     // --- MIDI File Loading and Playback ---
     private var midiLoadButton:openfl.display.SimpleButton;
-    private var midiEvents:Array<{time:Float, type:String, channel:Int, note:Int, velocity:Int}> = [];
+    private var midiEvents:Array<Dynamic> = [];
     private var midiPlaybackTimer:Timer;
     private var midiPlaybackPos:Float = 0.0;
     private var midiIsPlaying:Bool = false;
@@ -508,7 +508,11 @@ class MidiSynthExample extends Sprite {
             trace('First 10 parsed MIDI events:');
             for (i in 0...Std.int(Math.min(10, midiEvents.length))) {
                 var ev = midiEvents[i];
-                trace('  [' + i + '] time=' + ev.time + ' type=' + ev.type + ' ch=' + ev.channel + ' note=' + ev.note + ' vel=' + ev.velocity);
+                var msg = '  [' + i + '] time=' + Std.string(ev.time) + ' type=' + Std.string(ev.type) + ' ch=' + Std.string(ev.channel);
+                if (Reflect.hasField(ev, "note")) msg += ' note=' + Std.string(ev.note);
+                if (Reflect.hasField(ev, "velocity")) msg += ' vel=' + Std.string(ev.velocity);
+                if (Reflect.hasField(ev, "program")) msg += ' program=' + Std.string(ev.program);
+                trace(msg);
             }
             updateInfo('MIDI file parsed. Found ' + midiEvents.length + ' note events. Ready to play.');
         } catch (e:Dynamic) {
@@ -523,7 +527,7 @@ class MidiSynthExample extends Sprite {
     }
 
     // Parse MIDI file and return event list using moonchart
-    private function parseMidiFile(bytes:haxe.io.Bytes):Array<{time:Float, type:String, channel:Int, note:Int, velocity:Int}> {
+    private function parseMidiFile(bytes:haxe.io.Bytes):Array<Dynamic> {
         try {
             var parser = new MidiParser();
             var midi = parser.parseBytes(bytes);
@@ -556,7 +560,7 @@ class MidiSynthExample extends Sprite {
                     }
                 }
             }
-            // Parse note events
+            // Parse note and program change events
             for (track in midi.tracks) {
                 lastTick = 0;
                 currentTime = 0.0;
@@ -572,10 +576,13 @@ class MidiSynthExample extends Sprite {
                             var channel = bytes[0] & 0x0F;
                             if (status == 0x90 && bytes[2] > 0) {
                                 // Note on
-                                events.push({time: currentTime, type: "on", channel: channel, note: bytes[1], velocity: bytes[2]});
+                                events.push({time: currentTime, type: "on", channel: channel, note: bytes[1], velocity: bytes[2], program: 0});
                             } else if ((status == 0x80) || (status == 0x90 && bytes[2] == 0)) {
                                 // Note off
-                                events.push({time: currentTime, type: "off", channel: channel, note: bytes[1], velocity: bytes[2]});
+                                events.push({time: currentTime, type: "off", channel: channel, note: bytes[1], velocity: 0, program: 0});
+                            } else if (status == 0xC0) {
+                                // Program change
+                                events.push({time: currentTime, type: "program", channel: channel, note: 0, velocity: 0, program: bytes[1]});
                             }
                         case TEMPO_CHANGE(_, _):
                             // ignore
@@ -632,13 +639,22 @@ class MidiSynthExample extends Sprite {
         // Play all events whose time <= elapsed
         while (midiPlaybackPos < midiEvents.length) {
             var ev = midiEvents[Std.int(midiPlaybackPos)];
-            trace('Playback tick: elapsed=' + elapsed + 'ms, next event[' + midiPlaybackPos + '].time=' + ev.time + ' type=' + ev.type);
-            if (ev.time > elapsed) break;
+            trace('Playback tick: elapsed=' + elapsed + 'ms, next event[' + midiPlaybackPos + '].time=' + Std.string(ev.time) + ' type=' + Std.string(ev.type));
+            var evTime:Float = cast(ev.time, Float);
+            if (evTime > elapsed) break;
             switch (ev.type) {
                 case "on":
-                    synth.noteOn(ev.channel, ev.note, ev.velocity);
+                    if (Reflect.hasField(ev, "note") && Reflect.hasField(ev, "velocity") && Std.isOfType(ev.note, Int) && Std.isOfType(ev.velocity, Int)) {
+                        synth.noteOn(ev.channel, ev.note, ev.velocity);
+                    }
                 case "off":
-                    synth.noteOff(ev.channel, ev.note);
+                    if (Reflect.hasField(ev, "note") && Std.isOfType(ev.note, Int)) {
+                        synth.noteOff(ev.channel, ev.note);
+                    }
+                case "program":
+                    if (Reflect.hasField(ev, "program") && Std.isOfType(ev.program, Int)) {
+                        synth.setPreset(ev.channel, 0, ev.program);
+                    }
             }
             midiPlaybackPos++;
         }
