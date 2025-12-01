@@ -154,20 +154,45 @@ class MidiSynthExample extends Sprite {
         renderTimer.addEventListener(TimerEvent.TIMER, onRenderTick);
         renderTimer.start();
 
-        // Minimal prefill - just 2 buffers to avoid initial stutter
+        // Minimal prefill - for HTML5 fill the entire buffer
+        #if html5
+        for (i in 0...MAX_QUEUE_SIZE) {
+            var silence = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
+            for (j in 0...BUFFER_SIZE * CHANNELS) silence.setFloat(j * 4, 0.0);
+            audioQueue.push(silence);
+        }
+        #else
         for (i in 0...2) {
             var silence = haxe.io.Bytes.alloc(BUFFER_SIZE * CHANNELS * 4);
             for (j in 0...BUFFER_SIZE * CHANNELS) silence.setFloat(j * 4, 0.0);
             audioQueue.push(silence);
         }
+        #end
     }    private var renderCount:Int = 0;
+    #if html5
+    private static inline var MAX_QUEUE_SIZE:Int = 6; // More buffering for WASM overhead
+    #else
     private static inline var MAX_QUEUE_SIZE:Int = 3; // Keep latency minimal (~70ms)
+    #end
     
     private function onRenderTick(e:TimerEvent):Void {
+        // For HTML5, render multiple buffers per tick to compensate for WASM overhead
+        #if html5
+        var buffersToRender = MAX_QUEUE_SIZE - audioQueue.length;
+        for (i in 0...buffersToRender) {
+            if (audioQueue.length >= MAX_QUEUE_SIZE) break;
+            renderOneBuffer();
+        }
+        #else
         // Don't render if queue is already full
         if (audioQueue.length >= MAX_QUEUE_SIZE) {
             return;
         }
+        renderOneBuffer();
+        #end
+    }
+    
+    private function renderOneBuffer():Void {
         
         try {
             #if cpp

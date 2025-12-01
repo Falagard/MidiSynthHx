@@ -126,7 +126,6 @@ var TSFGlue = (function() {
         
         // Trigger note on
         noteOn: function(handle, channel, note, velocity) {
-            console.log("TSFGlue.noteOn called:", handle, channel, note, velocity);
             module._wasm_tsf_note_on(handle, channel, note, velocity);
         },
         
@@ -137,7 +136,6 @@ var TSFGlue = (function() {
         
         // Set instrument preset
         setPreset: function(handle, channel, bank, preset) {
-            console.log("TSFGlue.setPreset called:", handle, channel, bank, preset);
             module._wasm_tsf_set_preset(handle, channel, bank, preset);
         },
         
@@ -157,10 +155,35 @@ var TSFGlue = (function() {
             // Render audio into WASM memory
             var rendered = module._wasm_tsf_render(handle, bufferPtr, sampleCount);
             
-            // Copy from WASM heap to JavaScript Float32Array using getValue
+            // Copy from WASM heap to JavaScript Float32Array
+            // Try to access memory buffer directly for performance
             var output = new Float32Array(totalFloats);
-            for (var i = 0; i < totalFloats; i++) {
-                output[i] = module.getValue(bufferPtr + (i * 4), 'float');
+            try {
+                // Attempt direct memory access via wasmMemory or HEAPF32
+                var heapF32 = null;
+                if (module.HEAPF32) {
+                    heapF32 = module.HEAPF32;
+                } else if (module.wasmMemory && module.wasmMemory.buffer) {
+                    heapF32 = new Float32Array(module.wasmMemory.buffer);
+                } else if (module.asm && module.asm.memory && module.asm.memory.buffer) {
+                    heapF32 = new Float32Array(module.asm.memory.buffer);
+                }
+                
+                if (heapF32) {
+                    // Fast path: bulk copy from WASM heap
+                    var heapIndex = bufferPtr >> 2; // Divide by 4 (float size)
+                    output.set(heapF32.subarray(heapIndex, heapIndex + totalFloats));
+                } else {
+                    // Fallback: slow getValue loop
+                    for (var i = 0; i < totalFloats; i++) {
+                        output[i] = module.getValue(bufferPtr + (i * 4), 'float');
+                    }
+                }
+            } catch (e) {
+                // On error, use slow path
+                for (var i = 0; i < totalFloats; i++) {
+                    output[i] = module.getValue(bufferPtr + (i * 4), 'float');
+                }
             }
             
             // Free temporary buffer
@@ -176,9 +199,7 @@ var TSFGlue = (function() {
         
         // Get active voice count
         activeVoices: function(handle) {
-            var voices = module._wasm_tsf_active_voices(handle);
-            console.log("TSFGlue.activeVoices:", voices);
-            return voices;
+            return module._wasm_tsf_active_voices(handle);
         }
     };
 })();
