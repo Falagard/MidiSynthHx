@@ -1,3 +1,4 @@
+
 package;
 
 #if cpp
@@ -32,6 +33,26 @@ import haxe.io.Bytes as HaxeBytes;
 #end
 #end
 class MidiSynth {
+        /**
+         * Set per-channel volume (0.0 = silent, 1.0 = full)
+         * @param channel MIDI channel (0-15)
+         * @param volume Volume as float (0.0-1.0)
+         */
+        public function setChannelVolume(channel:Int, volume:Float):Void {
+            #if cpp
+            MidiSynthNative.channelSetVolume(handle, channel, volume);
+            #elseif hl
+            tsf_channel_set_volume(handle, channel, volume);
+            #elseif js
+            if (handle != 0 && glue != null && glue.channelSetVolume != null) {
+                untyped glue.channelSetVolume(handle, channel, volume);
+            }
+            #end
+        }
+    #if hl
+        @:hlNative("tsfhl", "channel_set_volume")
+        private static function tsf_channel_set_volume(handle:Dynamic, channel:Int, volume:Float):Void {}
+    #end
     #if cpp
     private var handle:cpp.RawPointer<cpp.Void>;
     #elseif hl

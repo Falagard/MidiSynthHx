@@ -155,9 +155,22 @@ int tsf_bridge_active_voices(TSFHandle handle) {
     TSFSynth* synth = (TSFSynth*)handle;
     return tsf_active_voice_count(synth->synth);
 }
+// Set per-channel volume (0.0 = silent, 1.0 = full)
+void tsf_bridge_channel_set_volume(TSFHandle handle, int channel, float volume) {
+    if (!handle) return;
+    TSFSynth* synth = (TSFSynth*)handle;
+    tsf_channel_set_volume(synth->synth, channel, volume);
+}
 
 #ifdef HXCPP_API
 // CFFI wrappers for Haxe cpp.Lib.load
+static value cffi_tsf_channel_set_volume(value vhandle, value vchan, value vvol) {
+    TSFHandle h = (TSFHandle)(intptr_t)val_int(vhandle);
+    float vol = (float)val_number(vvol);
+    tsf_bridge_channel_set_volume(h, val_int(vchan), vol);
+    return alloc_null();
+}
+DEFINE_PRIM(cffi_tsf_channel_set_volume,3);
 static value cffi_tsf_init(value vpath) {
     const char* path = val_string(vpath);
     TSFHandle h = tsf_bridge_init(path);

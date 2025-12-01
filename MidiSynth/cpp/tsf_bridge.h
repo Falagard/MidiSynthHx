@@ -78,6 +78,12 @@ void tsf_bridge_note_off_all(TSFHandle handle);
 // Get the number of active voices
 int tsf_bridge_active_voices(TSFHandle handle);
 
+// Set per-channel volume
+// handle: synthesizer instance
+// channel: MIDI channel (0-15)
+// volume: float 0.0 (silent) to 1.0 (full)
+void tsf_bridge_channel_set_volume(TSFHandle handle, int channel, float volume);
+
 #ifdef __cplusplus
 }
 #endif

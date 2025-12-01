@@ -123,3 +123,11 @@ HL_PRIM int HL_NAME(active_voices)(vdynamic* handle) {
     return tsf_bridge_active_voices((TSFHandle)handle->v.ptr);
 }
 DEFINE_PRIM(_I32, active_voices, _DYN);
+
+// Set per-channel volume
+// Haxe signature: function channelSetVolume(handle:TSFHandle, channel:Int, volume:Float):Void
+HL_PRIM void HL_NAME(channel_set_volume)(vdynamic* handle, int channel, double volume) {
+    if (!handle || !handle->v.ptr) return;
+    tsf_bridge_channel_set_volume((TSFHandle)handle->v.ptr, channel, (float)volume);
+}
+DEFINE_PRIM(_VOID, channel_set_volume, _DYN _I32 _F64);

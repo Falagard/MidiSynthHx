@@ -585,6 +585,19 @@ class MidiSynthExample extends Sprite {
                                 var msb = bytes[2];
                                 var pitchWheel = (msb << 7) | lsb; // 14-bit value
                                 events.push({time: currentTime, type: "pitchbend", channel: channel, note: 0, velocity: 0, program: 0, pitchBend: pitchWheel});
+                            } else if (status == 0xB0) {
+                                // Control change (0xB0)
+                                var controller = bytes[1];
+                                var value = bytes[2];
+                                events.push({
+                                    time: currentTime,
+                                    type: "control",
+                                    channel: channel,
+                                    note: controller, // store controller number in note
+                                    velocity: value,  // controller value
+                                    program: 0,
+                                    pitchBend: 0
+                                });
                             }
                         default:
                             // ignore
@@ -680,6 +693,11 @@ class MidiSynthExample extends Sprite {
                 case "pitchbend":
                     if (Reflect.hasField(ev, "pitchBend") && Std.isOfType(ev.pitchBend, Int)) {
                         synth.pitchBend(ev.channel, ev.pitchBend);
+                    }
+                case "control":
+                    // Use ev.note as controller number, ev.velocity as value
+                    if (Std.isOfType(ev.note, Int) && Std.isOfType(ev.velocity, Int)) {
+                        synth.controlChange(ev.channel, ev.note, ev.velocity);
                     }
             }
             midiPlaybackPos++;
