@@ -7,6 +7,59 @@ Current naming:
 - Build script: `build_hdll.bat` (Windows convenience wrapper)
 - Haxe bindings module name: `tsfhl` (see `MidiSynth/haxe/MidiSynth.hx`)
 
+## Setting up HASHLINK_PATH Environment Variable
+
+Before building, you need to set the `HASHLINK_PATH` environment variable to your HashLink installation directory.
+
+### Windows
+
+**Method 1: System Environment Variable (Permanent)**
+1. Press `Win + X` and select "System"
+2. Click "Advanced system settings"
+3. Click "Environment Variables"
+4. Under "System variables" or "User variables", click "New"
+5. Variable name: `HASHLINK_PATH`
+6. Variable value: Your HashLink path (e.g., `C:\HaxeToolkit\hl` or `C:\Program Files\HashLink`)
+7. Click OK and restart your terminal
+
+**Method 2: PowerShell Session (Temporary)**
+```powershell
+$env:HASHLINK_PATH = "C:\HaxeToolkit\hl"  # Adjust to your path
+```
+
+**Method 3: Let the build script find it automatically**
+The `build_hdll.bat` script will attempt to locate HashLink by searching for `hl.exe` in common locations:
+- `C:\HaxeToolkit\hl`
+- `C:\Program Files\HashLink`
+- Your PATH environment variable
+
+### Linux / macOS
+
+Add to your `~/.bashrc`, `~/.zshrc`, or `~/.profile`:
+```bash
+export HASHLINK_PATH="/usr/local/lib/hashlink"  # or /usr/lib/hashlink
+```
+
+Then reload: `source ~/.bashrc` (or restart terminal)
+
+To find your HashLink installation:
+```bash
+which hl  # Shows hl binary location
+# If hl is at /usr/local/bin/hl, headers are likely in /usr/local/lib/hashlink or /usr/local/include
+```
+
+### Verifying HASHLINK_PATH
+
+```powershell
+# Windows (PowerShell)
+echo $env:HASHLINK_PATH
+dir $env:HASHLINK_PATH\include\hl.h  # Should show the header file
+
+# Linux/macOS
+echo $HASHLINK_PATH
+ls $HASHLINK_PATH/include/hl.h  # Should show the header file
+```
+
 ## Fast Build (Windows)
 
 From a regular PowerShell terminal (no need to manually open the VS Developer Prompt):
