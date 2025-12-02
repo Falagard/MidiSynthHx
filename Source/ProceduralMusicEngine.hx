@@ -27,6 +27,11 @@ class ProceduralMusicEngine {
      */
     public function createDefaultSong(bpm:Int = 120, seed:Int = 42):Void {
         song = new StructuredSong(bpm, seed);
+
+        var intro = new Section("intro", 16);
+        var introMelody = new Track("intro", new WeightedMarkovMelodyGen(1, 77));
+        introMelody.channel = 0;
+        intro.addTrack(introMelody);
         
         // Create verse section (16 beats)
         var verse = new Section("verse", 16);
@@ -37,6 +42,10 @@ class ProceduralMusicEngine {
         var verseBass = new Track("bass", new RhythmPatternGen("x---x---x---x---", 36, 100, 1, 0.25));
         verseBass.channel = 1;
         verse.addTrack(verseBass);
+
+        var verseDrum = new Track("drums", new RhythmPatternGen("--x---x-", 38, 110, 9, 0.25));
+        verseDrum.channel = 9;
+        verse.addTrack(verseDrum);
         
         // Create chorus section (8 beats)
         var chorus = new Section("chorus", 8);
@@ -45,14 +54,19 @@ class ProceduralMusicEngine {
         chorusMelody.addRule(new ChordProgressionRule(["C", "Am", "F", "G"]));
         chorus.addTrack(chorusMelody);
         
-        var chorusDrum = new Track("drums", new RhythmPatternGen("x-x-x-x-", 38, 110, 9, 0.25));
+        var chorusDrum = new Track("drums", new RhythmPatternGen("x-xx--x-", 38, 110, 9, 0.25));
         chorusDrum.channel = 9;
         chorus.addTrack(chorusDrum);
+
+        var chorusBass = new Track("chorusbass", new RhythmPatternGen("x--xx---x--xx-x-", 36, 100, 1, 0.25));
+        chorusBass.channel = 1;
+        chorus.addTrack(chorusBass);
         
         // Arrange song: verse -> chorus -> verse
-        song.addSection(verse, 0);
-        song.addSection(chorus, 16);
-        song.addSection(verse, 24);
+        song.addSection(intro, 0);
+        song.addSection(verse, 16);
+        song.addSection(chorus, 32);
+        song.addSection(verse, 40);
         
         // Create scheduler
         scheduler = new Scheduler(song, synth);
