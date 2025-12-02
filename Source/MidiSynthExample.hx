@@ -50,6 +50,12 @@ class MidiSynthExample extends Sprite {
     private var midiTempo:Float = 500000.0; // microseconds per quarter note (default 120bpm)
     private var midiTicksPerQuarter:Int = 480; // default, will be set from file
     private var midiFileLoaded:Bool = false;
+    
+    // --- Procedural Music Engine ---
+    private var proceduralEngine:ProceduralMusicEngine;
+    private var proceduralPlayButton:openfl.display.SimpleButton;
+    private var proceduralStopButton:openfl.display.SimpleButton;
+    
     #if html5
     private var audioStarted:Bool = false;
     #end
@@ -97,6 +103,17 @@ class MidiSynthExample extends Sprite {
         midiLoadButton.x = 10;
         midiLoadButton.y = infoText.y + infoText.height + 10;
         addChild(midiLoadButton);
+        
+        // Add procedural music buttons
+        proceduralPlayButton = createProceduralPlayButton();
+        proceduralPlayButton.x = 10;
+        proceduralPlayButton.y = midiLoadButton.y + 40;
+        addChild(proceduralPlayButton);
+        
+        proceduralStopButton = createProceduralStopButton();
+        proceduralStopButton.x = 150;
+        proceduralStopButton.y = proceduralPlayButton.y;
+        addChild(proceduralStopButton);
     }
 
     #if html5
@@ -365,6 +382,100 @@ class MidiSynthExample extends Sprite {
             synth.panicStopAllNotes(); // Also resets controllers
             activeNotes = new Map<Int, Bool>();
             updateInfo("PANIC: All notes, sound, and controllers reset");
+        }
+    }
+    
+    private function createProceduralPlayButton():openfl.display.SimpleButton {
+        var up:Sprite = new Sprite();
+        up.graphics.beginFill(0x22AA22);
+        up.graphics.drawRect(0, 0, 130, 32);
+        up.graphics.endFill();
+        var tf = new TextField();
+        tf.text = "Play Procedural";
+        tf.width = 130;
+        tf.height = 32;
+        tf.selectable = false;
+        up.addChild(tf);
+
+        var over:Sprite = new Sprite();
+        over.graphics.beginFill(0x44CC44);
+        over.graphics.drawRect(0, 0, 130, 32);
+        over.graphics.endFill();
+        var tf2 = new TextField();
+        tf2.text = "Play Procedural";
+        tf2.width = 130;
+        tf2.height = 32;
+        tf2.selectable = false;
+        over.addChild(tf2);
+
+        var down:Sprite = new Sprite();
+        down.graphics.beginFill(0x116611);
+        down.graphics.drawRect(0, 0, 130, 32);
+        down.graphics.endFill();
+        var tf3 = new TextField();
+        tf3.text = "Play Procedural";
+        tf3.width = 130;
+        tf3.height = 32;
+        tf3.selectable = false;
+        down.addChild(tf3);
+
+        var button = new openfl.display.SimpleButton(up, over, down, up);
+        button.addEventListener(MouseEvent.CLICK, onProceduralPlay);
+        return button;
+    }
+    
+    private function createProceduralStopButton():openfl.display.SimpleButton {
+        var up:Sprite = new Sprite();
+        up.graphics.beginFill(0xAA2222);
+        up.graphics.drawRect(0, 0, 130, 32);
+        up.graphics.endFill();
+        var tf = new TextField();
+        tf.text = "Stop Procedural";
+        tf.width = 130;
+        tf.height = 32;
+        tf.selectable = false;
+        up.addChild(tf);
+
+        var over:Sprite = new Sprite();
+        over.graphics.beginFill(0xCC4444);
+        over.graphics.drawRect(0, 0, 130, 32);
+        over.graphics.endFill();
+        var tf2 = new TextField();
+        tf2.text = "Stop Procedural";
+        tf2.width = 130;
+        tf2.height = 32;
+        tf2.selectable = false;
+        over.addChild(tf2);
+
+        var down:Sprite = new Sprite();
+        down.graphics.beginFill(0x661111);
+        down.graphics.drawRect(0, 0, 130, 32);
+        down.graphics.endFill();
+        var tf3 = new TextField();
+        tf3.text = "Stop Procedural";
+        tf3.width = 130;
+        tf3.height = 32;
+        tf3.selectable = false;
+        down.addChild(tf3);
+
+        var button = new openfl.display.SimpleButton(up, over, down, up);
+        button.addEventListener(MouseEvent.CLICK, onProceduralStop);
+        return button;
+    }
+    
+    private function onProceduralPlay(e:MouseEvent):Void {
+        if (proceduralEngine == null) {
+            proceduralEngine = new ProceduralMusicEngine(synth);
+            proceduralEngine.createDefaultSong(120, Std.int(Math.random() * 10000));
+        }
+        proceduralEngine.play();
+        updateInfo("Procedural music started (BPM: 120)");
+    }
+    
+    private function onProceduralStop(e:MouseEvent):Void {
+        if (proceduralEngine != null) {
+            proceduralEngine.stop();
+            updateInfo("Procedural music stopped");
         }
     }
     
@@ -677,7 +788,7 @@ class MidiSynthExample extends Sprite {
         midiLastTickTime = midiStartTime;
         midiPlaybackTime = 0.0;
         if (midiPlaybackTimer != null) midiPlaybackTimer.stop();
-        midiPlaybackTimer = new Timer(1); // 1ms tick for best accuracy
+        midiPlaybackTimer = new Timer(5);
         midiPlaybackTimer.addEventListener(TimerEvent.TIMER, onMidiPlaybackTick);
         midiPlaybackTimer.start();
         updateInfo("MIDI playback started.");
