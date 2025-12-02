@@ -45,6 +45,8 @@ class MidiSynthExample extends Sprite {
     private var midiPlaybackPos:Float = 0.0;
     private var midiIsPlaying:Bool = false;
     private var midiStartTime:Float = 0.0;
+    private var midiLastTickTime:Float = 0.0; // last wall time in seconds
+    private var midiPlaybackTime:Float = 0.0; // running playback time in ms
     private var midiTempo:Float = 500000.0; // microseconds per quarter note (default 120bpm)
     private var midiTicksPerQuarter:Int = 480; // default, will be set from file
     private var midiFileLoaded:Bool = false;
@@ -666,8 +668,10 @@ class MidiSynthExample extends Sprite {
         midiIsPlaying = true;
         midiPlaybackPos = 0.0;
         midiStartTime = haxe.Timer.stamp();
+        midiLastTickTime = midiStartTime;
+        midiPlaybackTime = 0.0;
         if (midiPlaybackTimer != null) midiPlaybackTimer.stop();
-        midiPlaybackTimer = new Timer(10); // 10ms tick
+        midiPlaybackTimer = new Timer(1); // 1ms tick for best accuracy
         midiPlaybackTimer.addEventListener(TimerEvent.TIMER, onMidiPlaybackTick);
         midiPlaybackTimer.start();
         updateInfo("MIDI playback started.");
@@ -681,6 +685,10 @@ class MidiSynthExample extends Sprite {
         var releaseTimeoutMs = 1500; // Max time to wait for release (ms)
         var releaseCheckInterval = 50; // ms
         var waited = 0;
+        // Immediately stop all notes and controllers
+        if (synth != null) {
+            synth.panicStopAllNotes();
+        }
         function logActiveVoices() {
             var voices = synth.getActiveVoices();
             trace('Active voices after stop: ' + voices);
@@ -721,13 +729,14 @@ class MidiSynthExample extends Sprite {
     private function onMidiPlaybackTick(e:TimerEvent):Void {
         if (!midiIsPlaying) return;
         var now = haxe.Timer.stamp();
-        var elapsed = (now - midiStartTime) * 1000.0; // ms
-        // Play all events whose time <= elapsed
+        var delta = (now - midiLastTickTime) * 1000.0; // ms since last tick
+        midiLastTickTime = now;
+        midiPlaybackTime += delta;
+        // Play all events whose time <= midiPlaybackTime
         while (midiPlaybackPos < midiEvents.length) {
             var ev = midiEvents[Std.int(midiPlaybackPos)];
-            // Removed extraneous playback tick logging
             var evTime:Float = cast(ev.time, Float);
-            if (evTime > elapsed) break;
+            if (evTime > midiPlaybackTime) break;
             var ch = Std.int(ev.channel);
             var note = Std.isOfType(ev.note, Int) ? ev.note : Std.parseInt(Std.string(ev.note));
             var velocity = Std.isOfType(ev.velocity, Int) ? ev.velocity : Std.parseInt(Std.string(ev.velocity));
