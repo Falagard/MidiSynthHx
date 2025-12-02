@@ -1,7 +1,6 @@
 .haxelib
 # Ignore entire Export build outputs
-Export/**
-!Export/hl/bin/tsfhl.hdll
+Export
 
 # HashLink build artifacts (native)
 MidiSynth/hl/*.obj
