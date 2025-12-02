@@ -19,8 +19,13 @@
     <haxelib name="hxcpp" />
     <haxelib name="moonchart" />
     
-	<!-- Assets -->
-	<assets path="Assets" />
+	<!-- Assets: Only include GM.small.sf2 for html5, GM.sf2 for all others -->
+	<section if="html5">
+		<assets path="Assets/soundfonts/GM.small.sf2" />
+	</section>
+	<section unless="html5">
+		<assets path="Assets/soundfonts/GM.sf2" />
+	</section>
 	
 	<!-- MidiSynth C++ Native Extension -->
 	<hxcpp include="MidiSynth/cpp/include.xml" />
@@ -39,7 +44,7 @@
 	<!-- MidiSynth HashLink Native Extension -->
 	<section if="hl">
 		<!-- HashLink native library 'tsfhl.hdll' built by MidiSynth/hl/build_hdll.bat -->
-		<!-- Copy tsfhl.hdll into Export/hl/bin before lime test hl (not auto-built by Lime) -->
+		<postbuild command="copy-hl-hdll.bat" />
 	</section>
 	
 	<!-- MidiSynth WebAssembly for HTML5 -->

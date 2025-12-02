@@ -119,7 +119,13 @@ class MidiSynthExample extends Sprite {
             trace("Attempting to create MidiSynth...");
             // Create synthesizer with GM.sf2 SoundFont
             // Use the correct packaged Assets path for native targets
-            synth = new MidiSynth(#if html5 "assets/soundfonts/GM.sf2" #else "Assets/soundfonts/GM.sf2" #end, SAMPLE_RATE, CHANNELS);
+            synth = new MidiSynth(
+                #if html5
+                    "assets/soundfonts/GM.small.sf2"
+                #else
+                    "Assets/soundfonts/GM.sf2"
+                #end
+                , SAMPLE_RATE, CHANNELS);
             trace("MidiSynth created successfully");
             
             // Set up channel 0 with piano (preset 0)

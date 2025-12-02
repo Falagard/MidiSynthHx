@@ -83,10 +83,16 @@ This script will:
 4. Link `tsfhl.hdll`
 5. Optionally copy to your HashLink installation directory
 
-After building, copy `tsfhl.hdll` into your output folder if not already:
+
+## Post-Build: Copy to Export/hl/bin
+
+After building, the following command will automatically copy the built `tsfhl.hdll` to the Lime output directory:
+
 ```powershell
 Copy-Item MidiSynth\hl\tsfhl.hdll Export\hl\bin\tsfhl.hdll -Force
 ```
+
+You can add this as a post-build step in your build script or run it manually after each build to ensure the runtime can find the native library.
 
 Then run:
 ```powershell
