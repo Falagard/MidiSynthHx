@@ -101,6 +101,15 @@ class MidiSynthExample extends Sprite {
     private var proceduralEngine:ProceduralMusicEngine;
     private var proceduralPlayButton:openfl.display.SimpleButton;
     private var proceduralStopButton:openfl.display.SimpleButton;
+    private var chordInstrButton:openfl.display.SimpleButton;
+    private var leadInstrButton:openfl.display.SimpleButton;
+    private var bassInstrButton:openfl.display.SimpleButton;
+    private var chordProgram:Int = 4; // Electric Piano
+    private var leadProgram:Int = 81; // Lead Square
+    private var bassProgram:Int = 32; // Acoustic Bass
+    private var chordChoices:Array<Int> = [0, 4, 5, 24, 29, 88];
+    private var leadChoices:Array<Int> = [81, 80, 65, 73, 56, 12];
+    private var bassChoices:Array<Int> = [32, 33, 38, 39];
     
     #if html5
     private var audioStarted:Bool = false;
@@ -160,6 +169,22 @@ class MidiSynthExample extends Sprite {
         proceduralStopButton.x = 150;
         proceduralStopButton.y = proceduralPlayButton.y;
         addChild(proceduralStopButton);
+
+        // Instrument buttons
+        chordInstrButton = createTextButton("Chord Instr", onChordInstr);
+        chordInstrButton.x = 10;
+        chordInstrButton.y = proceduralPlayButton.y + 40;
+        addChild(chordInstrButton);
+
+        leadInstrButton = createTextButton("Lead Instr", onLeadInstr);
+        leadInstrButton.x = 150;
+        leadInstrButton.y = chordInstrButton.y;
+        addChild(leadInstrButton);
+
+        bassInstrButton = createTextButton("Bass Instr", onBassInstr);
+        bassInstrButton.x = 290;
+        bassInstrButton.y = chordInstrButton.y;
+        addChild(bassInstrButton);
     }
 
     #if html5
@@ -527,7 +552,9 @@ class MidiSynthExample extends Sprite {
             var song = new StructuredSong(bpm, Std.random(10000));
             proceduralEngine = new ProceduralMusicEngine(song, synth);
         }
-        proceduralEngine.playStrudelLike(bpm, chords, 0, 0, true);
+        // Enable blues mode, walking bass, and swing feel
+        // Programs: chord=Electric Piano (4), lead=Lead 1 Square (81), bass=Acoustic Bass (32)
+        proceduralEngine.playStrudelLike(bpm, chords, 0, 0, true, true, true, true, chordProgram, leadProgram, bassProgram);
         updateInfo("Strudel-style progression started via engine (BPM: " + bpm + ")");
     }
     
@@ -538,6 +565,41 @@ class MidiSynthExample extends Sprite {
             proceduralEngine.stop();
             updateInfo("Procedural music stopped");
         }
+    }
+
+    private function createTextButton(label:String, handler:MouseEvent->Void):openfl.display.SimpleButton {
+        var up:Sprite = new Sprite();
+        up.graphics.beginFill(0x333366);
+        up.graphics.drawRect(0, 0, 120, 28);
+        up.graphics.endFill();
+        var tf = new TextField(); tf.text = label; tf.width = 120; tf.height = 28; tf.selectable = false; up.addChild(tf);
+        var btn = new openfl.display.SimpleButton(up, up, up, up);
+        btn.addEventListener(MouseEvent.CLICK, handler);
+        return btn;
+    }
+
+    private function cycle(val:Int, choices:Array<Int>):Int {
+        var idx = choices.indexOf(val);
+        idx = (idx < 0) ? 0 : (idx + 1) % choices.length;
+        return choices[idx];
+    }
+
+    private function onChordInstr(_e:MouseEvent):Void {
+        chordProgram = cycle(chordProgram, chordChoices);
+        if (synth != null) synth.setPreset(0, 0, chordProgram);
+        updateInfo("Chord program -> " + chordProgram);
+    }
+
+    private function onLeadInstr(_e:MouseEvent):Void {
+        leadProgram = cycle(leadProgram, leadChoices);
+        if (synth != null) synth.setPreset(0, 0, leadProgram);
+        updateInfo("Lead program -> " + leadProgram);
+    }
+
+    private function onBassInstr(_e:MouseEvent):Void {
+        bassProgram = cycle(bassProgram, bassChoices);
+        if (synth != null) synth.setPreset(1, 0, bassProgram);
+        updateInfo("Bass program -> " + bassProgram);
     }
     
     private function onKeyUp(e:KeyboardEvent):Void {
