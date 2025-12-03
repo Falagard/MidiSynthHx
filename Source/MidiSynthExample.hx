@@ -38,6 +38,44 @@ import hl.Gc;
  * - Visual feedback
  */
 class MidiSynthExample extends Sprite {
+        // --- Strudel-style progression logic ---
+        private static var tonics = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        private static var majorIntervals = [2, 2, 1, 2, 2, 2, 1];
+        private static var majorChordsInKey = ["M", "m", "m", "M", "M", "m", "o"];
+        private static var progressions = [
+            [0, 3, 4, 0],
+            [0, 4, 5, 3],
+            [0, 3, 5, 4],
+            [0, 5, 3, 4],
+            [5, 3, 0, 4]
+        ];
+
+        private static function buildScale(startIndex:Int, intervals:Array<Int>):Array<String> {
+            var scale = [tonics[startIndex]];
+            var idx = startIndex;
+            for (step in intervals) {
+                idx = (idx + step) % tonics.length;
+                scale.push(tonics[idx]);
+            }
+            return scale;
+        }
+
+        private static function randomProg(?index:Int):Array<{root:String, type:String}> {
+            var tonicIndex = index != null ? index : Std.random(tonics.length);
+            var prog = progressions[Std.random(progressions.length)];
+            var scale = buildScale(tonicIndex, majorIntervals);
+            var chords = [];
+            for (step in prog) {
+                chords.push({root: scale[step], type: majorChordsInKey[step]});
+            }
+            return chords;
+        }
+
+        // Utility: get MIDI note number for a tonic name and octave
+        private static function tonicToMidi(tonic:String, octave:Int):Int {
+            var idx = tonics.indexOf(tonic);
+            return idx >= 0 ? idx + 12 * (octave + 1) : 60; // default C4
+        }
     private var synth:MidiSynth;
     private var sound:Sound;
     private var soundChannel:SoundChannel;
@@ -481,40 +519,22 @@ class MidiSynthExample extends Sprite {
     }
     
     private function onProceduralPlay(e:MouseEvent):Void {
+        // Use ProceduralMusicEngine Strudel-like playback
+        var bpm = 120;
+        var chords = randomProg();
         if (proceduralEngine == null) {
-            // --- Create a simple procedural song ---
-            var bpm = 120;
-            var seed = Std.int(Math.random() * 10000);
-            var song = new StructuredSong(bpm, seed);
-
-            // Section: Verse
-            var verse = new Section("Verse", 16);
-
-            // Rhythm track via Strudel-like pattern
-            var kickGen = new procedural.PatternAdapter("[bd ~] bd ~ bd sn ~ hh ~ *2 [hh hh]", bpm, 9, 0.25);
-            var kickTrack = new Track("Drums", kickGen);
-            kickTrack.channel = 9; // Ensure events play on GM percussion channel
-            verse.addTrack(kickTrack);
-
-            // Melody track: Markov melody
-            //var melodyGen = new WeightedMarkovMelodyGen(1, 60);
-            //var melodyTrack = new Track("Melody", melodyGen);
-            // Add chord progression rule (C, F, G, C)
-            //melodyTrack.addRule(new ChordProgressionRule(["C", "F", "G", "C"], 4));
-            // Add arpeggiate rule
-            //melodyTrack.addRule(new ArpeggiateRule(0.125));
-            //verse.addTrack(melodyTrack);
-
-            song.addSection(verse, 0);
-
+            // Minimal song scaffold to satisfy engine constructor
+            var song = new StructuredSong(bpm, Std.random(10000));
             proceduralEngine = new ProceduralMusicEngine(song, synth);
         }
-        proceduralEngine.play();
-        updateInfo("Procedural music started (BPM: 120)");
+        proceduralEngine.playStrudelLike(bpm, chords, 0, 0, true);
+        updateInfo("Strudel-style progression started via engine (BPM: " + bpm + ")");
     }
     
     private function onProceduralStop(e:MouseEvent):Void {
         if (proceduralEngine != null) {
+            // Stop both scheduler-driven playback and Strudel-like playback
+            proceduralEngine.stopStrudelLike();
             proceduralEngine.stop();
             updateInfo("Procedural music stopped");
         }
