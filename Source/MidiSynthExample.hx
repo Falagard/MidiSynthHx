@@ -554,7 +554,8 @@ class MidiSynthExample extends Sprite {
         }
         // Enable blues mode, walking bass, and swing feel
         // Programs: chord=Electric Piano (4), lead=Lead 1 Square (81), bass=Acoustic Bass (32)
-        proceduralEngine.playStrudelLike(bpm, chords, 0, 0, true, true, true, true, chordProgram, leadProgram, bassProgram);
+        // Effects: sustain on, chorus depth 96
+        proceduralEngine.playStrudelLike(bpm, chords, 0, 0, true, true, true, true, chordProgram, leadProgram, bassProgram, true, 96);
         updateInfo("Strudel-style progression started via engine (BPM: " + bpm + ")");
     }
     

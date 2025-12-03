@@ -111,7 +111,9 @@ class ProceduralMusicEngine {
         safeHarmony:Bool = true,
         chordProgram:Int = 4,   // Electric Piano 1
         leadProgram:Int = 81,   // Lead 1 (square)
-        bassProgram:Int = 32    // Acoustic Bass
+        bassProgram:Int = 32,    // Acoustic Bass
+        sustainOn:Bool = true,
+        chorusLevel:Int = 80     // GM CC93 chorus depth
     ):Void {
         stopStrudelLike();
         this.strudelBpm = bpm;
@@ -138,6 +140,13 @@ class ProceduralMusicEngine {
         try { synth.setPreset(this.strudelChannelChord, 0, chordProgram); } catch (_:Dynamic) {}
         try { synth.setPreset(this.strudelChannelLead, 0, leadProgram); } catch (_:Dynamic) {}
         try { synth.setPreset(strudelChannelBass, 0, bassProgram); } catch (_:Dynamic) {}
+        // Apply chorus (CC93) per channel only
+        try {
+            var chorus:Int = Std.int(Math.max(0, Math.min(80, chorusLevel))); // moderate chorus
+            synth.controlChange(this.strudelChannelChord, 93, chorus);
+            synth.controlChange(this.strudelChannelLead, 93, chorus);
+            synth.controlChange(strudelChannelBass, 93, chorus);
+        } catch (_:Dynamic) {}
         this.strudelChordIdx = 0;
         this.strudelStep = 0;
         this.strudelIsPlaying = true;
@@ -162,7 +171,7 @@ class ProceduralMusicEngine {
             var doPlayChord = gate[strudelStep % gateLen];
             if (doPlayChord) {
                 var ints = chordIntervals(chord.type, blues);
-                for (i in 0...ints.length) synth.noteOn(strudelChannelChord, rootMidi + ints[i], 100);
+                for (i in 0...ints.length) synth.noteOn(strudelChannelChord, rootMidi + ints[i], 70);
                 // Turn off chord at half-beat to mimic gate
                 haxe.Timer.delay(function() {
                     for (i in 0...ints.length) synth.noteOff(strudelChannelChord, rootMidi + ints[i]);
@@ -229,7 +238,7 @@ class ProceduralMusicEngine {
             var diff = leadNote - strudelAnchorMidi;
             while (diff > 6) { leadNote -= 12; diff = leadNote - strudelAnchorMidi; }
             while (diff < -6) { leadNote += 12; diff = leadNote - strudelAnchorMidi; }
-            synth.noteOn(strudelChannelLead, leadNote, 100);
+            synth.noteOn(strudelChannelLead, leadNote, 60);
             haxe.Timer.delay(function() synth.noteOff(strudelChannelLead, leadNote), swingOff);
 
             // --- Bass line ---
@@ -257,7 +266,7 @@ class ProceduralMusicEngine {
                     case 7: bassNote = nextRoot;            // land on next root
                     default: bassNote = bassRoot;
                 }
-                synth.noteOn(strudelChannelBass, bassNote, 105);
+                synth.noteOn(strudelChannelBass, bassNote, 60);
                 // Swing: lengthen on-beats, shorten off-beats
                 var len = (step8 % 2 == 0) ? swingOn : swingOff;
                 haxe.Timer.delay(function() synth.noteOff(strudelChannelBass, bassNote), len);
