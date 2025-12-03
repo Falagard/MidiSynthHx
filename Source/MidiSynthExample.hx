@@ -1,6 +1,14 @@
 package;
 
 import openfl.display.Sprite;
+import procedural.ProceduralMusicEngine;
+import procedural.StructuredSong;
+import procedural.Section;
+import procedural.Track;
+import procedural.generators.RhythmPatternGen;
+import procedural.generators.WeightedMarkovMelodyGen;
+import procedural.rules.ChordProgressionRule;
+import procedural.rules.ArpeggiateRule;
 import moonchart.parsers.MidiParser;
 import openfl.utils.ByteArray;
 import openfl.events.Event;
@@ -153,6 +161,15 @@ class MidiSynthExample extends Sprite {
             } catch (e:Dynamic) {
                 trace("ERROR in setPreset: " + Std.string(e));
                 throw e;
+            }
+
+            // Set up channel 9 (GM drums) to percussion bank 128, preset 0
+            // This makes notes like 36 (bd) play as kick drum instead of piano
+            try {
+                synth.setPreset(9, 128, 0);
+                trace("Channel 9 set to GM percussion (bank 128, preset 0)");
+            } catch (e:Dynamic) {
+                trace("ERROR setting channel 9 percussion: " + Std.string(e));
             }
             
             updateInfo("MidiSynth initialized successfully!\nPress keys to play notes.");
@@ -465,8 +482,32 @@ class MidiSynthExample extends Sprite {
     
     private function onProceduralPlay(e:MouseEvent):Void {
         if (proceduralEngine == null) {
-            proceduralEngine = new ProceduralMusicEngine(synth);
-            proceduralEngine.createDefaultSong(120, Std.int(Math.random() * 10000));
+            // --- Create a simple procedural song ---
+            var bpm = 120;
+            var seed = Std.int(Math.random() * 10000);
+            var song = new StructuredSong(bpm, seed);
+
+            // Section: Verse
+            var verse = new Section("Verse", 16);
+
+            // Rhythm track via Strudel-like pattern
+            var kickGen = new procedural.PatternAdapter("[bd ~] bd ~ bd sn ~ hh ~ *2 [hh hh]", bpm, 9, 0.25);
+            var kickTrack = new Track("Drums", kickGen);
+            kickTrack.channel = 9; // Ensure events play on GM percussion channel
+            verse.addTrack(kickTrack);
+
+            // Melody track: Markov melody
+            //var melodyGen = new WeightedMarkovMelodyGen(1, 60);
+            //var melodyTrack = new Track("Melody", melodyGen);
+            // Add chord progression rule (C, F, G, C)
+            //melodyTrack.addRule(new ChordProgressionRule(["C", "F", "G", "C"], 4));
+            // Add arpeggiate rule
+            //melodyTrack.addRule(new ArpeggiateRule(0.125));
+            //verse.addTrack(melodyTrack);
+
+            song.addSection(verse, 0);
+
+            proceduralEngine = new ProceduralMusicEngine(song, synth);
         }
         proceduralEngine.play();
         updateInfo("Procedural music started (BPM: 120)");
