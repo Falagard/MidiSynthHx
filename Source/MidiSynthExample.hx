@@ -104,6 +104,19 @@ class MidiSynthExample extends Sprite {
     private var chordInstrButton:openfl.display.SimpleButton;
     private var leadInstrButton:openfl.display.SimpleButton;
     private var bassInstrButton:openfl.display.SimpleButton;
+    private var swingButton:openfl.display.SimpleButton;
+    private var walkingButton:openfl.display.SimpleButton;
+    private var bluesButton:openfl.display.SimpleButton;
+    private var harmonyButton:openfl.display.SimpleButton;
+        // Store label TextFields for toggle buttons
+        private var swingLabel:TextField;
+        private var walkingLabel:TextField;
+        private var bluesLabel:TextField;
+        private var harmonyLabel:TextField;
+    private var swing:Bool = true;
+    private var walkingBass:Bool = true;
+    private var blues:Bool = true;
+    private var safeHarmony:Bool = true;
     private var chordProgram:Int = 4; // Electric Piano
     private var leadProgram:Int = 81; // Lead Square
     private var bassProgram:Int = 32; // Acoustic Bass
@@ -171,20 +184,52 @@ class MidiSynthExample extends Sprite {
         addChild(proceduralStopButton);
 
         // Instrument buttons
-        chordInstrButton = createTextButton("Chord Instr", onChordInstr);
+        var chordBtn = createTextButtonWithLabel("Chord Instr", onChordInstr);
+        chordInstrButton = chordBtn.button;
         chordInstrButton.x = 10;
         chordInstrButton.y = proceduralPlayButton.y + 40;
         addChild(chordInstrButton);
 
-        leadInstrButton = createTextButton("Lead Instr", onLeadInstr);
+        var leadBtn = createTextButtonWithLabel("Lead Instr", onLeadInstr);
+        leadInstrButton = leadBtn.button;
         leadInstrButton.x = 150;
         leadInstrButton.y = chordInstrButton.y;
         addChild(leadInstrButton);
 
-        bassInstrButton = createTextButton("Bass Instr", onBassInstr);
+        var bassBtn = createTextButtonWithLabel("Bass Instr", onBassInstr);
+        bassInstrButton = bassBtn.button;
         bassInstrButton.x = 290;
         bassInstrButton.y = chordInstrButton.y;
         addChild(bassInstrButton);
+
+        // Toggle buttons for playback options
+            var swingBtn = createTextButtonWithLabel("Swing: ON", onSwingToggle);
+            swingButton = swingBtn.button;
+            swingLabel = swingBtn.label;
+            swingButton.x = 10;
+            swingButton.y = bassInstrButton.y + 40;
+            addChild(swingButton);
+
+            var walkingBtn = createTextButtonWithLabel("Walking Bass: ON", onWalkingToggle);
+            walkingButton = walkingBtn.button;
+            walkingLabel = walkingBtn.label;
+            walkingButton.x = 150;
+            walkingButton.y = bassInstrButton.y + 40;
+            addChild(walkingButton);
+
+            var bluesBtn = createTextButtonWithLabel("Blues: ON", onBluesToggle);
+            bluesButton = bluesBtn.button;
+            bluesLabel = bluesBtn.label;
+            bluesButton.x = 290;
+            bluesButton.y = bassInstrButton.y + 40;
+            addChild(bluesButton);
+
+            var harmonyBtn = createTextButtonWithLabel("Safe Harmony: ON", onHarmonyToggle);
+            harmonyButton = harmonyBtn.button;
+            harmonyLabel = harmonyBtn.label;
+            harmonyButton.x = 430;
+            harmonyButton.y = bassInstrButton.y + 40;
+            addChild(harmonyButton);
     }
 
     #if html5
@@ -552,12 +597,38 @@ class MidiSynthExample extends Sprite {
             var song = new StructuredSong(bpm, Std.random(10000));
             proceduralEngine = new ProceduralMusicEngine(song, synth);
         }
+        // Turn off chorus on drums (channel 9)
+        if (synth != null) synth.controlChange(9, 93, 0);
         // Enable blues mode, walking bass, and swing feel
         // Programs: chord=Electric Piano (4), lead=Lead 1 Square (81), bass=Acoustic Bass (32)
         // Effects: sustain on, chorus depth 96
-        proceduralEngine.playStrudelLike(bpm, chords, 0, 0, true, true, true, true, chordProgram, leadProgram, bassProgram, true, 96);
+        proceduralEngine.playStrudelLike(
+            bpm, chords, 0, 0,
+            blues, walkingBass, swing, safeHarmony,
+            chordProgram, leadProgram, bassProgram, false, 96
+        );
         updateInfo("Strudel-style progression started via engine (BPM: " + bpm + ")");
     }
+        private function onSwingToggle(_e:MouseEvent):Void {
+            swing = !swing;
+            if (swingLabel != null) swingLabel.text = "Swing: " + (swing ? "ON" : "OFF");
+            updateInfo("Swing " + (swing ? "enabled" : "disabled"));
+        }
+        private function onWalkingToggle(_e:MouseEvent):Void {
+            walkingBass = !walkingBass;
+            if (walkingLabel != null) walkingLabel.text = "Walking Bass: " + (walkingBass ? "ON" : "OFF");
+            updateInfo("Walking Bass " + (walkingBass ? "enabled" : "disabled"));
+        }
+        private function onBluesToggle(_e:MouseEvent):Void {
+            blues = !blues;
+            if (bluesLabel != null) bluesLabel.text = "Blues: " + (blues ? "ON" : "OFF");
+            updateInfo("Blues " + (blues ? "enabled" : "disabled"));
+        }
+        private function onHarmonyToggle(_e:MouseEvent):Void {
+            safeHarmony = !safeHarmony;
+            if (harmonyLabel != null) harmonyLabel.text = "Safe Harmony: " + (safeHarmony ? "ON" : "OFF");
+            updateInfo("Safe Harmony " + (safeHarmony ? "enabled" : "disabled"));
+        }
     
     private function onProceduralStop(e:MouseEvent):Void {
         if (proceduralEngine != null) {
@@ -568,7 +639,8 @@ class MidiSynthExample extends Sprite {
         }
     }
 
-    private function createTextButton(label:String, handler:MouseEvent->Void):openfl.display.SimpleButton {
+    // Helper to create a button and return both the button and its label
+    private function createTextButtonWithLabel(label:String, handler:MouseEvent->Void):{button:openfl.display.SimpleButton, label:TextField} {
         var up:Sprite = new Sprite();
         up.graphics.beginFill(0x333366);
         up.graphics.drawRect(0, 0, 120, 28);
@@ -576,7 +648,7 @@ class MidiSynthExample extends Sprite {
         var tf = new TextField(); tf.text = label; tf.width = 120; tf.height = 28; tf.selectable = false; up.addChild(tf);
         var btn = new openfl.display.SimpleButton(up, up, up, up);
         btn.addEventListener(MouseEvent.CLICK, handler);
-        return btn;
+        return {button: btn, label: tf};
     }
 
     private function cycle(val:Int, choices:Array<Int>):Int {
