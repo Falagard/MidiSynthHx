@@ -590,7 +590,7 @@ class MidiSynthExample extends Sprite {
     
     private function onProceduralPlay(e:MouseEvent):Void {
         // Use ProceduralMusicEngine Strudel-like playback
-        var bpm = 120;
+        var bpm = 160;
         var chords = randomProg();
         if (proceduralEngine == null) {
             // Minimal song scaffold to satisfy engine constructor
@@ -602,7 +602,7 @@ class MidiSynthExample extends Sprite {
         // Enable blues mode, walking bass, and swing feel
         // Programs: chord=Electric Piano (4), lead=Lead 1 Square (81), bass=Acoustic Bass (32)
         // Effects: sustain on, chorus depth 96
-        proceduralEngine.playStrudelLike(
+        proceduralEngine.playGroove(
             bpm, chords, 0, 0,
             blues, walkingBass, swing, safeHarmony,
             chordProgram, leadProgram, bassProgram, false, 96
@@ -632,8 +632,8 @@ class MidiSynthExample extends Sprite {
     
     private function onProceduralStop(e:MouseEvent):Void {
         if (proceduralEngine != null) {
-            // Stop both scheduler-driven playback and Strudel-like playback
-            proceduralEngine.stopStrudelLike();
+            // Stop both scheduler-driven playback and groove playback
+            proceduralEngine.stopGroove();
             proceduralEngine.stop();
             updateInfo("Procedural music stopped");
         }

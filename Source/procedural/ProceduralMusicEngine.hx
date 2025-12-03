@@ -17,19 +17,19 @@ class ProceduralMusicEngine {
     public var synth:MidiSynth;
     public var scheduler:Scheduler;
 
-    // --- Strudel-like playback state ---
-    private var strudelTimer:haxe.Timer;
-    private var strudelChordIdx:Int = 0;
-    private var strudelStep:Int = 0;
-    private var strudelIsPlaying:Bool = false;
-    private var strudelChords:Array<{root:String, type:String}>;
-    private var strudelBpm:Int = 120;
-    private var strudelChannelChord:Int = 0;
-    private var strudelChannelLead:Int = 0;
-    private var strudelAnchorMidi:Int = 60; // C4
-    private var strudelChannelDrums:Int = 9; // GM percussion channel
-    private var strudelChannelBass:Int = 1;  // Dedicated bass channel
-    private var strudelBassAnchor:Int = 48;  // C3 anchor for bass
+    // --- Groove playback state ---
+    private var grooveTimer:haxe.Timer;
+    private var grooveChordIdx:Int = 0;
+    private var grooveStep:Int = 0;
+    private var grooveIsPlaying:Bool = false;
+    private var grooveChords:Array<{root:String, type:String}>;
+    private var grooveBpm:Int = 120;
+    private var grooveChannelChord:Int = 0;
+    private var grooveChannelLead:Int = 0;
+    private var grooveAnchorMidi:Int = 60; // C4
+    private var grooveChannelDrums:Int = 9; // GM percussion channel
+    private var grooveChannelBass:Int = 1;  // Dedicated bass channel
+    private var grooveBassAnchor:Int = 48;  // C3 anchor for bass
 
     public function new(song:StructuredSong, synth:MidiSynth) {
         this.song = song;
@@ -58,7 +58,7 @@ class ProceduralMusicEngine {
         scheduler.stop();
     }
 
-    // --- Strudel-like helpers ---
+    // --- Groove helpers ---
     private static var tonics = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     private static function tonicToMidi(tonic:String, octave:Int):Int {
         var idx = tonics.indexOf(tonic);
@@ -97,10 +97,10 @@ class ProceduralMusicEngine {
     }
 
     /**
-     * Play Strudel-like stack: gated chords + lead degrees following chords.
+     * Play groove stack: gated chords + lead degrees following chords.
      * chords: array of {root:String, type:String}
      */
-    public function playStrudelLike(
+    public function playGroove(
         bpm:Int,
         chords:Array<{root:String, type:String}>,
         channelChord:Int = 0,
@@ -115,8 +115,8 @@ class ProceduralMusicEngine {
         sustainOn:Bool = true,
         chorusLevel:Int = 80     // GM CC93 chorus depth
     ):Void {
-        stopStrudelLike();
-        this.strudelBpm = bpm;
+        stopGroove();
+        this.grooveBpm = bpm;
         // If blues mode, derive a simple 12‑bar I–IV–V progression from first chord root
         if (blues && chords != null && chords.length > 0) {
             var keyRoot = chords[0].root;
@@ -130,26 +130,26 @@ class ProceduralMusicEngine {
             var IV = {root: tonicAt(5), type: "M"};
             var V = {root: tonicAt(7), type: "M"};
             // 12‑bar template (each step = one beat group here): I I I I | IV IV I I | V IV I V
-            this.strudelChords = [I, I, I, I, IV, IV, I, I, V, IV, I, V];
+            this.grooveChords = [I, I, I, I, IV, IV, I, I, V, IV, I, V];
         } else {
-            this.strudelChords = chords;
+            this.grooveChords = chords;
         }
-        this.strudelChannelChord = channelChord;
-        this.strudelChannelLead = channelLead;
+        this.grooveChannelChord = channelChord;
+        this.grooveChannelLead = channelLead;
         // Set instruments (GM)
-        try { synth.setPreset(this.strudelChannelChord, 0, chordProgram); } catch (_:Dynamic) {}
-        try { synth.setPreset(this.strudelChannelLead, 0, leadProgram); } catch (_:Dynamic) {}
-        try { synth.setPreset(strudelChannelBass, 0, bassProgram); } catch (_:Dynamic) {}
+        try { synth.setPreset(this.grooveChannelChord, 0, chordProgram); } catch (_:Dynamic) {}
+        try { synth.setPreset(this.grooveChannelLead, 0, leadProgram); } catch (_:Dynamic) {}
+        try { synth.setPreset(grooveChannelBass, 0, bassProgram); } catch (_:Dynamic) {}
         // Apply chorus (CC93) per channel only
         try {
             var chorus:Int = Std.int(Math.max(0, Math.min(80, chorusLevel))); // moderate chorus
-            synth.controlChange(this.strudelChannelChord, 93, chorus);
-            synth.controlChange(this.strudelChannelLead, 93, chorus);
-            synth.controlChange(strudelChannelBass, 93, chorus);
+            synth.controlChange(this.grooveChannelChord, 93, chorus);
+            synth.controlChange(this.grooveChannelLead, 93, chorus);
+            synth.controlChange(grooveChannelBass, 93, chorus);
         } catch (_:Dynamic) {}
-        this.strudelChordIdx = 0;
-        this.strudelStep = 0;
-        this.strudelIsPlaying = true;
+        this.grooveChordIdx = 0;
+        this.grooveStep = 0;
+        this.grooveIsPlaying = true;
 
         var msPerBeat = Std.int(60000 / bpm);
         var swingOn = swing ? Std.int(msPerBeat * 0.6) : Std.int(msPerBeat / 2);
@@ -161,20 +161,20 @@ class ProceduralMusicEngine {
         // Lead follows chord tones to stay consonant
         var leadIdx = 0;
 
-        strudelTimer = new haxe.Timer(msPerBeat);
-        strudelTimer.run = function() {
-            if (!strudelIsPlaying || strudelChords == null || strudelChords.length == 0) return;
-            var chord = strudelChords[strudelChordIdx % strudelChords.length];
+        grooveTimer = new haxe.Timer(msPerBeat);
+        grooveTimer.run = function() {
+            if (!grooveIsPlaying || grooveChords == null || grooveChords.length == 0) return;
+            var chord = grooveChords[grooveChordIdx % grooveChords.length];
             var rootMidi = tonicToMidi(chord.root, 4);
 
             // Gate chords
-            var doPlayChord = gate[strudelStep % gateLen];
+            var doPlayChord = gate[grooveStep % gateLen];
             if (doPlayChord) {
                 var ints = chordIntervals(chord.type, blues);
-                for (i in 0...ints.length) synth.noteOn(strudelChannelChord, rootMidi + ints[i], 70);
+                for (i in 0...ints.length) synth.noteOn(grooveChannelChord, rootMidi + ints[i], 70);
                 // Turn off chord at half-beat to mimic gate
                 haxe.Timer.delay(function() {
-                    for (i in 0...ints.length) synth.noteOff(strudelChannelChord, rootMidi + ints[i]);
+                    for (i in 0...ints.length) synth.noteOff(grooveChannelChord, rootMidi + ints[i]);
                 }, swingOff);
             }
 
@@ -187,7 +187,7 @@ class ProceduralMusicEngine {
                 var pick = safeSet[leadIdx % safeSet.length];
                 baseLead = rootMidi + pick;
             } else if (blues) {
-                var keyRoot = strudelChords[0].root;
+                var keyRoot = grooveChords[0].root;
                 var keyMidi = tonicToMidi(keyRoot, 4);
                 var bluesScale = [0, 3, 4, 6, 7, 10, 12];
                 var pick = bluesScale[leadIdx % bluesScale.length];
@@ -199,62 +199,62 @@ class ProceduralMusicEngine {
             }
             // Choose octave nearest to anchor (C4) to keep lead centered
             // --- Drums: enhanced 8-step groove ---
-            var step8 = strudelStep % 8;
+            var step8 = grooveStep % 8;
             var KICK = 36; var SNARE = 38; var HHO = 42; var HHC = 46; var CRASH = 49; var TOM1 = 45;
             // Hats: off-beat closed hats on every step, with lighter velocity on odd steps
             var hhVel = (step8 % 2 == 0) ? 85 : 70;
-            synth.noteOn(strudelChannelDrums, HHC, hhVel);
-            haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, HHC), Std.int(msPerBeat / 2));
+            synth.noteOn(grooveChannelDrums, HHC, hhVel);
+            haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, HHC), Std.int(msPerBeat / 2));
             // Occasional open hat on step 6 for breath
             if (step8 == 6) {
-                synth.noteOn(strudelChannelDrums, HHO, 78);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, HHO), Std.int(msPerBeat / 2));
+                synth.noteOn(grooveChannelDrums, HHO, 78);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, HHO), Std.int(msPerBeat / 2));
             }
             // Kicks: 0, 2, 4(soft), 7(ghost)
             if (step8 == 0 || step8 == 2) {
-                synth.noteOn(strudelChannelDrums, KICK, 112);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, KICK), Std.int(msPerBeat / 2));
+                synth.noteOn(grooveChannelDrums, KICK, 112);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, KICK), Std.int(msPerBeat / 2));
             } else if (step8 == 4) {
-                synth.noteOn(strudelChannelDrums, KICK, 96);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, KICK), Std.int(msPerBeat / 2));
+                synth.noteOn(grooveChannelDrums, KICK, 96);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, KICK), Std.int(msPerBeat / 2));
             } else if (step8 == 7) {
-                synth.noteOn(strudelChannelDrums, KICK, 88);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, KICK), Std.int(msPerBeat / 2));
+                synth.noteOn(grooveChannelDrums, KICK, 88);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, KICK), Std.int(msPerBeat / 2));
             }
             // Snares: 3, 7 main backbeat; 5 ghost
             if (step8 == 3 || step8 == 7) {
-                synth.noteOn(strudelChannelDrums, SNARE, 108);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, SNARE), Std.int(msPerBeat / 2));
+                synth.noteOn(grooveChannelDrums, SNARE, 108);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, SNARE), Std.int(msPerBeat / 2));
             } else if (step8 == 5) {
-                synth.noteOn(strudelChannelDrums, SNARE, 82);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, SNARE), Std.int(msPerBeat / 2));
+                synth.noteOn(grooveChannelDrums, SNARE, 82);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, SNARE), Std.int(msPerBeat / 2));
             }
             // Crash accent on bar start (every 8 steps)
-            if (step8 == 0 && (strudelChordIdx % 2 == 0)) {
-                synth.noteOn(strudelChannelDrums, CRASH, 100);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelDrums, CRASH), Std.int(msPerBeat / 2));
+            if (step8 == 0 && (grooveChordIdx % 2 == 0)) {
+                synth.noteOn(grooveChannelDrums, CRASH, 100);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelDrums, CRASH), Std.int(msPerBeat / 2));
             }
             var leadNote = baseLead;
-            var diff = leadNote - strudelAnchorMidi;
-            while (diff > 6) { leadNote -= 12; diff = leadNote - strudelAnchorMidi; }
-            while (diff < -6) { leadNote += 12; diff = leadNote - strudelAnchorMidi; }
-            synth.noteOn(strudelChannelLead, leadNote, 60);
-            haxe.Timer.delay(function() synth.noteOff(strudelChannelLead, leadNote), swingOff);
+            var diff = leadNote - grooveAnchorMidi;
+            while (diff > 6) { leadNote -= 12; diff = leadNote - grooveAnchorMidi; }
+            while (diff < -6) { leadNote += 12; diff = leadNote - grooveAnchorMidi; }
+            synth.noteOn(grooveChannelLead, leadNote, 60);
+            haxe.Timer.delay(function() synth.noteOff(grooveChannelLead, leadNote), swingOff);
 
             // --- Bass line ---
             var bassRoot = tonicToMidi(chord.root, 2);
-            var bdiff = bassRoot - strudelBassAnchor;
-            while (bdiff > 6) { bassRoot -= 12; bdiff = bassRoot - strudelBassAnchor; }
-            while (bdiff < -6) { bassRoot += 12; bdiff = bassRoot - strudelBassAnchor; }
+            var bdiff = bassRoot - grooveBassAnchor;
+            while (bdiff > 6) { bassRoot -= 12; bdiff = bassRoot - grooveBassAnchor; }
+            while (bdiff < -6) { bassRoot += 12; bdiff = bassRoot - grooveBassAnchor; }
             var bassNote:Int;
             if (walkingBass) {
                 // Walking pattern with chromatic approach into next chord root
-                var nextChord = strudelChords[(strudelChordIdx + 1) % strudelChords.length];
+                var nextChord = grooveChords[(grooveChordIdx + 1) % grooveChords.length];
                 var nextRoot = tonicToMidi(nextChord.root, 2);
                 // Normalize nextRoot near bass anchor
-                var nbdiff = nextRoot - strudelBassAnchor;
-                while (nbdiff > 6) { nextRoot -= 12; nbdiff = nextRoot - strudelBassAnchor; }
-                while (nbdiff < -6) { nextRoot += 12; nbdiff = nextRoot - strudelBassAnchor; }
+                var nbdiff = nextRoot - grooveBassAnchor;
+                while (nbdiff > 6) { nextRoot -= 12; nbdiff = nextRoot - grooveBassAnchor; }
+                while (nbdiff < -6) { nextRoot += 12; nbdiff = nextRoot - grooveBassAnchor; }
                 switch (step8) {
                     case 0: bassNote = bassRoot;            // root
                     case 1: bassNote = bassRoot + (blues ? 3 : 2); // b3 (blues) or 2
@@ -266,10 +266,10 @@ class ProceduralMusicEngine {
                     case 7: bassNote = nextRoot;            // land on next root
                     default: bassNote = bassRoot;
                 }
-                synth.noteOn(strudelChannelBass, bassNote, 60);
+                synth.noteOn(grooveChannelBass, bassNote, 60);
                 // Swing: lengthen on-beats, shorten off-beats
                 var len = (step8 % 2 == 0) ? swingOn : swingOff;
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelBass, bassNote), len);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelBass, bassNote), len);
             } else {
                 // Simple root–fifth–root–octave
                 switch (step8) {
@@ -279,21 +279,21 @@ class ProceduralMusicEngine {
                     case 6: bassNote = bassRoot + 12;       // octave
                     default: bassNote = bassRoot;           // fill
                 }
-                synth.noteOn(strudelChannelBass, bassNote, 105);
-                haxe.Timer.delay(function() synth.noteOff(strudelChannelBass, bassNote), msPerBeat);
+                synth.noteOn(grooveChannelBass, bassNote, 105);
+                haxe.Timer.delay(function() synth.noteOff(grooveChannelBass, bassNote), msPerBeat);
             }
 
             // advance
-            strudelStep++;
-            if (strudelStep % gateLen == 0) strudelChordIdx++;
+            grooveStep++;
+            if (grooveStep % gateLen == 0) grooveChordIdx++;
             leadIdx++;
         };
     }
 
-    public function stopStrudelLike():Void {
-        if (strudelTimer != null) strudelTimer.stop();
-        strudelTimer = null;
-        strudelIsPlaying = false;
+    public function stopGroove():Void {
+        if (grooveTimer != null) grooveTimer.stop();
+        grooveTimer = null;
+        grooveIsPlaying = false;
         // Send all-notes-off for safety
         if (synth != null) synth.noteOffAll();
     }
