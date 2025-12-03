@@ -121,7 +121,9 @@ class MidiSynthExample extends Sprite {
     private var leadProgram:Int = 81; // Lead Square
     private var bassProgram:Int = 32; // Acoustic Bass
     private var chordChoices:Array<Int> = [0, 4, 5, 24, 29, 88];
-    private var leadChoices:Array<Int> = [81, 80, 65, 73, 56, 12];
+    // GM lead instrument choices: Guitar, Sax, Trumpet, Flute, etc.
+    // 27 = Jazz Guitar, 28 = Clean Guitar, 56 = Trumpet, 57 = Trombone, 65 = Alto Sax, 66 = Tenor Sax, 73 = Flute, 74 = Recorder, 81 = Lead 1 (square)
+    private var leadChoices:Array<Int> = [27, 28, 65, 66, 56, 57, 73, 74, 81];
     private var bassChoices:Array<Int> = [32, 33, 38, 39];
     
     #if html5
@@ -589,7 +591,9 @@ class MidiSynthExample extends Sprite {
     }
     
     private function onProceduralPlay(e:MouseEvent):Void {
-        // Use ProceduralMusicEngine Strudel-like playback
+            // Add reverb to lead channel (CC91 value 96)
+            //if (synth != null) synth.controlChange(0, 91, 96);
+        // Use ProceduralMusicEngine 
         var bpm = 160;
         var chords = randomProg();
         if (proceduralEngine == null) {
@@ -599,6 +603,8 @@ class MidiSynthExample extends Sprite {
         }
         // Turn off chorus on drums (channel 9)
         if (synth != null) synth.controlChange(9, 93, 0);
+        // Add chorus to lead channel (CC93 value 96)
+        if (synth != null) synth.controlChange(0, 93, 96);
         // Enable blues mode, walking bass, and swing feel
         // Programs: chord=Electric Piano (4), lead=Lead 1 Square (81), bass=Acoustic Bass (32)
         // Effects: sustain on, chorus depth 96
